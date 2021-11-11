@@ -58,7 +58,8 @@ jobs:
         run: cargo test
   coverage:
     name: "Coverage Report"
-    needs: ["test"]
+    needs: 
+      - "test"
     steps:
       - name: "Upload code coverage"
         run: |
