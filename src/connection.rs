@@ -1,12 +1,8 @@
-use std::{
-    net::SocketAddr
-};
+use std::net::SocketAddr;
 pub struct Connection {
-    address : SocketAddr
+    address: SocketAddr,
 }
 
 impl Connection {
-    pub fn handle_datagram(&self,buf : &mut [u8]) {
-
-    }
+    pub fn handle_datagram(&self, buf: &mut [u8]) {}
 }
