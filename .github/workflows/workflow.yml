@@ -59,7 +59,7 @@ jobs:
   coverage:
     name: "Coverage Report"
     needs: 
-      - "test"
+      - test
     steps:
       - name: "Upload code coverage"
         run: |
