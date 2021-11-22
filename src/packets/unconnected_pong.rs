@@ -5,17 +5,25 @@ use std::io::Result;
 pub struct UnconnectedPong {
     pub time: u64,
     pub guid: u64,
-    pub magic: [u8; 16],
+    _magic: bool,
     pub motd: String,
 }
 
 impl UnconnectedPong {
+    pub fn new(time:u64,guid:u64,motd:String) -> Self {
+        Self{
+            time : time,
+            guid : guid,
+            _magic: true,
+            motd : motd
+        }
+    }
     pub fn read(payload: &[u8]) -> Result<Self> {
         let mut cursor = Reader::new(payload);
         Ok(Self {
             time: cursor.read_u64(Endian::Big)?,
             guid: cursor.read_u64(Endian::Big)?,
-            magic: cursor.read_magic()?,
+            _magic: cursor.read_magic()?,
             motd: cursor.read_string().to_owned(),
         })
     }

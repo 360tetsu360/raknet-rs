@@ -1,3 +1,10 @@
 pub struct Frame {
-    //idk
+    //
+    //
+    //
+    pub data : Vec<u8>
+}
+
+pub struct  FrameSet {
+    pub sequence_number : u32,
 }

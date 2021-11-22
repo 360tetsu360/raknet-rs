@@ -3,7 +3,7 @@ use crate::writer::Writer;
 use std::{io::Result, net::SocketAddr};
 
 pub struct OpenConnectionRequest2 {
-    _magic: [u8; 16],
+    _magic: bool,
     pub address: SocketAddr,
     pub mtu: u16,
     pub guid: u64,

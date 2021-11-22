@@ -3,7 +3,7 @@ use crate::writer::Writer;
 use std::{convert::TryInto, io::Result};
 
 pub struct OpenConnectionRequest1 {
-    _magic: [u8; 16],
+    _magic: bool,
     pub protocol_version: u8,
     pub mtu_size: u16, //[u8;mtusize]
 }

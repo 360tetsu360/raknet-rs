@@ -3,7 +3,7 @@ use crate::writer::Writer;
 use std::{io::Result, net::SocketAddr};
 
 pub struct OpenConnectionReply2 {
-    _magic: [u8; 16],
+    _magic: bool,
     pub guid: u64,
     pub address: SocketAddr,
     pub mtu: u16,
@@ -11,6 +11,15 @@ pub struct OpenConnectionReply2 {
 }
 
 impl OpenConnectionReply2 {
+    pub fn new(guid : u64,address : SocketAddr,mtu : u16,encryption_enabled : bool) -> Self {
+        Self{
+            _magic: true,
+            guid: guid,
+            address : address,
+            mtu : mtu,
+            encryption_enabled : encryption_enabled as u8
+        }
+    }
     pub fn read(payload: &[u8]) -> Result<Self> {
         let mut cursor = Reader::new(payload);
         Ok(Self {

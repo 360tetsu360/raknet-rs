@@ -11,6 +11,8 @@ pub mod open_connection_request2;
 pub mod unconnected_ping;
 pub mod unconnected_pong;
 
+use std::io::{Result,ErrorKind};
+
 use connected_ping::ConnectedPing as CPiPayload;
 use connected_pong::ConnectedPong as CPoPayload;
 use connection_request::ConnectionRequest as CRPayload;
@@ -38,98 +40,100 @@ pub enum Packets {
     NewIncomingConnection(NICPayload),
     IncompatibleProtocolVersion(IPVPayload),
     Disconnect(()),
+    Error(())
 }
 
-impl From<&mut [u8]> for Packets {
-    fn from(buf: &mut [u8]) -> Self {
+impl Packets{
+    pub fn decode(buf : &mut [u8]) -> Result<Self> {
         match buf[0] {
-            0x0 => Self::ConnectedPing(CPiPayload::read(&mut buf[1..]).unwrap()),
-            0x01 | 0x02 => Self::UnconnectedPing(UPiPayload::read(&mut buf[1..]).unwrap()),
-            0x03 => Self::ConnectedPong(CPoPayload::read(&mut buf[1..]).unwrap()),
-            0x05 => Self::OpenConnectionRequest1(OCRequest1Payload::read(&mut buf[1..]).unwrap()),
-            0x06 => Self::OpenConnectionReply1(OCReply1Payload::read(&mut buf[1..]).unwrap()),
-            0x07 => Self::OpenConnectionRequest2(OCRequest2Payload::read(&mut buf[1..]).unwrap()),
-            0x08 => Self::OpenConnectionReply2(OCReply2Payload::read(&mut buf[1..]).unwrap()),
-            0x09 => Self::ConnectionRequest(CRPayload::read(&mut buf[1..]).unwrap()),
-            0x10 => {
-                Self::ConnectionRequestAccepted(CRAcceptedPayload::read(&mut buf[1..]).unwrap())
-            }
-            0x13 => Self::NewIncomingConnection(NICPayload::read(&mut buf[1..]).unwrap()),
-            0x15 => Self::Disconnect(()),
-            0x19 => Self::IncompatibleProtocolVersion(IPVPayload::read(&mut buf[1..]).unwrap()),
-            0x1c => Self::UnconnectedPong(UPoPayload::read(&mut buf[1..]).unwrap()),
+            0x0 => Ok(Self::ConnectedPing(CPiPayload::read(&mut buf[1..])?)),
+            0x01 | 0x02 => Ok(Self::UnconnectedPing(UPiPayload::read(&mut buf[1..])?)),
+            0x03 => Ok(Self::ConnectedPong(CPoPayload::read(&mut buf[1..])?)),
+            0x05 => Ok(Self::OpenConnectionRequest1(OCRequest1Payload::read(&mut buf[1..])?)),
+            0x06 => Ok(Self::OpenConnectionReply1(OCReply1Payload::read(&mut buf[1..])?)),
+            0x07 => Ok(Self::OpenConnectionRequest2(OCRequest2Payload::read(&mut buf[1..])?)),
+            0x08 => Ok(Self::OpenConnectionReply2(OCReply2Payload::read(&mut buf[1..])?)),
+            0x09 => Ok(Self::ConnectionRequest(CRPayload::read(&mut buf[1..])?)),
+            0x10 => Ok(Self::ConnectionRequestAccepted(CRAcceptedPayload::read(&mut buf[1..])?)),
+            0x13 => Ok(Self::NewIncomingConnection(NICPayload::read(&mut buf[1..])?)),
+            0x15 => Ok(Self::Disconnect(())),
+            0x19 => Ok(Self::IncompatibleProtocolVersion(IPVPayload::read(&mut buf[1..])?)),
+            0x1c => Ok(Self::UnconnectedPong(UPoPayload::read(&mut buf[1..])?)),
             _ => {
-                unimplemented!()
+                Err(std::io::Error::new(
+                    ErrorKind::Other,
+                    "Unknown packet",
+                ))
             }
         }
     }
-}
-
-impl From<Packets> for Vec<u8> {
-    fn from(packet: Packets) -> Vec<u8> {
-        match packet {
+    pub fn encode(self) -> Result<Vec<u8>> {
+        match self {
             Packets::ConnectedPing(payload) => {
-                let mut buf = payload.write().unwrap();
+                let mut buf = payload.write()?;
                 buf.insert(0, 0x0);
-                buf
+                Ok(buf)
             }
             Packets::UnconnectedPing(payload) => {
-                let mut buf = payload.write().unwrap();
+                let mut buf = payload.write()?;
                 buf.insert(0, 0x1);
-                buf
+                Ok(buf)
             }
             Packets::ConnectedPong(payload) => {
-                let mut buf = payload.write().unwrap();
+                let mut buf = payload.write()?;
                 buf.insert(0, 0x3);
-                buf
+                Ok(buf)
             }
             Packets::OpenConnectionRequest1(payload) => {
-                let mut buf = payload.write().unwrap();
+                let mut buf = payload.write()?;
                 buf.insert(0, 0x5);
-                buf
+                Ok(buf)
             }
             Packets::OpenConnectionReply1(payload) => {
-                let mut buf = payload.write().unwrap();
+                let mut buf = payload.write()?;
                 buf.insert(0, 0x6);
-                buf
+                Ok(buf)
             }
             Packets::OpenConnectionRequest2(payload) => {
-                let mut buf = payload.write().unwrap();
+                let mut buf = payload.write()?;
                 buf.insert(0, 0x7);
-                buf
+                Ok(buf)
             }
             Packets::OpenConnectionReply2(payload) => {
-                let mut buf = payload.write().unwrap();
+                let mut buf = payload.write()?;
                 buf.insert(0, 0x8);
-                buf
+                Ok(buf)
             }
             Packets::ConnectionRequest(payload) => {
-                let mut buf = payload.write().unwrap();
+                let mut buf = payload.write()?;
                 buf.insert(0, 0x9);
-                buf
+                Ok(buf)
             }
             Packets::ConnectionRequestAccepted(payload) => {
-                let mut buf = payload.write().unwrap();
+                let mut buf = payload.write()?;
                 buf.insert(0, 0x10);
-                buf
+                Ok(buf)
             }
             Packets::NewIncomingConnection(payload) => {
-                let mut buf = payload.write().unwrap();
+                let mut buf = payload.write()?;
                 buf.insert(0, 0x13);
-                buf
+                Ok(buf)
             }
             Packets::Disconnect(_payload) => {
-                vec![0x15, 1]
+                Ok(vec![0x15, 1])
             }
             Packets::IncompatibleProtocolVersion(payload) => {
-                let mut buf = payload.write().unwrap();
+                let mut buf = payload.write()?;
                 buf.insert(0, 0x19);
-                buf
+                Ok(buf)
             }
             Packets::UnconnectedPong(payload) => {
-                let mut buf = payload.write().unwrap();
+                let mut buf = payload.write()?;
                 buf.insert(0, 0x1c);
-                buf
+                Ok(buf)
+            }
+            Packets::Error(_p) => {
+                Ok(vec![])
             }
             //_ => {unimplemented!()}
         }

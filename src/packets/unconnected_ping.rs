@@ -3,7 +3,7 @@ use crate::writer::Writer;
 use std::io::Result;
 pub struct UnconnectedPing {
     pub time: u64,
-    _magic: [u8; 16],
+    _magic: bool,
     pub guid: u64,
 }
 

@@ -3,7 +3,7 @@ use crate::writer::Writer;
 use std::io::Result;
 
 pub struct IncompatibleProtocolVersion {
-    _magic: [u8; 16],
+    _magic: bool,
     pub server_protocol: u8,
     pub server_guid: u64,
 }

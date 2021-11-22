@@ -1,7 +1,7 @@
 use byteorder::{BigEndian, LittleEndian, NativeEndian, ReadBytesExt};
 use std::{
     convert::TryInto,
-    io::{Cursor, ErrorKind, Read, Result},
+    io::{Cursor, Read, Result},
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     str,
 };
@@ -67,7 +67,7 @@ impl<'a> Reader<'a> {
         assert!(self.cursor.read(&mut self.strbuf).unwrap() == size.into());
         str::from_utf8(&self.strbuf).unwrap()
     }
-    pub fn read_magic(&mut self) -> Result<[u8; 16]> {
+    pub fn read_magic(&mut self) -> Result<bool> {
         let mut magic = [0; 16];
         self.cursor
             .read(&mut magic)
@@ -76,14 +76,7 @@ impl<'a> Reader<'a> {
             0x00, 0xff, 0xff, 0x00, 0xfe, 0xfe, 0xfe, 0xfe, 0xfd, 0xfd, 0xfd, 0xfd, 0x12, 0x34,
             0x56, 0x78,
         ];
-        if magic == offline_magic {
-            Ok(magic)
-        } else {
-            Err(std::io::Error::new(
-                ErrorKind::Other,
-                "Unable to read magic bytes",
-            ))
-        }
+        Ok(magic == offline_magic)
     }
     pub fn read_address(&mut self) -> Result<SocketAddr> {
         let ip_ver = self.read_u8()?;

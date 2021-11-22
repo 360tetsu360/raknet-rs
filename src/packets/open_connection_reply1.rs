@@ -3,13 +3,21 @@ use crate::writer::Writer;
 use std::io::Result;
 
 pub struct OpenConnectionReply1 {
-    _magic: [u8; 16],
+    _magic: bool,
     pub guid: u64,
     pub use_encryption: u8,
     pub mtu_size: u16,
 }
 
 impl OpenConnectionReply1 {
+    pub fn new(guid : u64,use_encryption : bool,mtu_size : u16) -> Self{
+        Self {
+            _magic: true,
+            guid : guid,
+            use_encryption : use_encryption as u8,
+            mtu_size : mtu_size
+        }
+    }
     pub fn read(payload: &[u8]) -> Result<Self> {
         let mut cursor = Reader::new(payload);
         Ok(Self {
