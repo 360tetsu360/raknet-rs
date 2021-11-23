@@ -13,14 +13,12 @@ pub struct Server {
 impl Server {
     pub async fn new(address: impl ToSocketAddrs,title : String) -> Self {
         println!("packet!");
-        let server = Self {
+        Self {
             socket: UdpSocket::bind(address).await.unwrap(),
             connection: HashMap::new(),
             id: random::<u64>(),
             title : title
         };
-        server.listen().await;
-        server
     }
 
     pub async fn listen(&self) {
