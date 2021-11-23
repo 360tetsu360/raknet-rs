@@ -1,7 +1,10 @@
-use std::{net::{SocketAddr, UdpSocket}, rc::Rc};
+use std::{
+    net::{SocketAddr, UdpSocket},
+    rc::Rc,
+};
 pub struct Connection {
     pub address: SocketAddr,
-    pub socket : Rc<UdpSocket>,
+    pub socket: Rc<UdpSocket>,
     //send_query : Vec<Frame>,
 }
 

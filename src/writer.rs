@@ -18,7 +18,7 @@ impl Writer {
         }
     }
     pub fn write(&mut self, v: &[u8]) -> Result<()> {
-        self.cursor.write(v)?;
+        let _ = self.cursor.write(v)?;
         Ok(())
     }
 
@@ -50,10 +50,10 @@ impl Writer {
         }
     }
 
-    pub fn write_string(&mut self, body: &str) -> Result<usize> {
+    pub fn write_string(&mut self, body: &str) -> Result<()> {
         let raw = body.as_bytes();
         self.write_u16(raw.len() as u16, Endian::Big)?;
-        self.cursor.write(raw)
+        self.write(raw)
     }
     pub fn write_magic(&mut self) -> Result<usize> {
         let magic = [
@@ -84,7 +84,7 @@ impl Writer {
                 IpAddr::V6(ip) => ip.octets().to_vec(),
                 _ => vec![0; 16],
             };
-            self.cursor.write(&ip_bytes)?;
+            self.cursor.write_all(&ip_bytes)?;
             self.cursor.write_i32::<BigEndian>(0)?;
             Ok(())
         }

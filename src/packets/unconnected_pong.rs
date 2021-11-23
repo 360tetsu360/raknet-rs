@@ -10,12 +10,12 @@ pub struct UnconnectedPong {
 }
 
 impl UnconnectedPong {
-    pub fn new(time:u64,guid:u64,motd:String) -> Self {
-        Self{
-            time : time,
-            guid : guid,
+    pub fn new(time: u64, guid: u64, motd: String) -> Self {
+        Self {
+            time,
+            guid,
             _magic: true,
-            motd : motd
+            motd,
         }
     }
     pub fn read(payload: &[u8]) -> Result<Self> {

@@ -70,7 +70,7 @@ impl<'a> Reader<'a> {
     pub fn read_magic(&mut self) -> Result<bool> {
         let mut magic = [0; 16];
         self.cursor
-            .read(&mut magic)
+            .read_exact(&mut magic)
             .expect("Unable to read magic bytes");
         let offline_magic = [
             0x00, 0xff, 0xff, 0x00, 0xfe, 0xfe, 0xfe, 0xfe, 0xfd, 0xfd, 0xfd, 0xfd, 0x12, 0x34,
@@ -97,7 +97,7 @@ impl<'a> Reader<'a> {
             let mut addr_buf = [0; 16];
 
             self.cursor
-                .read(&mut addr_buf)
+                .read_exact(&mut addr_buf)
                 .expect("Unable to read ipv6 address bytes");
             self.next(4);
             Ok(SocketAddr::new(

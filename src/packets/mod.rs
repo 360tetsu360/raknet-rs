@@ -11,7 +11,7 @@ pub mod open_connection_request2;
 pub mod unconnected_ping;
 pub mod unconnected_pong;
 
-use std::io::{Result,ErrorKind};
+use std::io::{ErrorKind, Result};
 
 use connected_ping::ConnectedPing as CPiPayload;
 use connected_pong::ConnectedPong as CPoPayload;
@@ -40,31 +40,38 @@ pub enum Packets {
     NewIncomingConnection(NICPayload),
     IncompatibleProtocolVersion(IPVPayload),
     Disconnect(()),
-    Error(())
+    Error(()),
 }
 
-impl Packets{
-    pub fn decode(buf : &mut [u8]) -> Result<Self> {
+impl Packets {
+    pub fn decode(buf: &mut [u8]) -> Result<Self> {
         match buf[0] {
-            0x0 => Ok(Self::ConnectedPing(CPiPayload::read(&mut buf[1..])?)),
-            0x01 | 0x02 => Ok(Self::UnconnectedPing(UPiPayload::read(&mut buf[1..])?)),
-            0x03 => Ok(Self::ConnectedPong(CPoPayload::read(&mut buf[1..])?)),
-            0x05 => Ok(Self::OpenConnectionRequest1(OCRequest1Payload::read(&mut buf[1..])?)),
-            0x06 => Ok(Self::OpenConnectionReply1(OCReply1Payload::read(&mut buf[1..])?)),
-            0x07 => Ok(Self::OpenConnectionRequest2(OCRequest2Payload::read(&mut buf[1..])?)),
-            0x08 => Ok(Self::OpenConnectionReply2(OCReply2Payload::read(&mut buf[1..])?)),
-            0x09 => Ok(Self::ConnectionRequest(CRPayload::read(&mut buf[1..])?)),
-            0x10 => Ok(Self::ConnectionRequestAccepted(CRAcceptedPayload::read(&mut buf[1..])?)),
-            0x13 => Ok(Self::NewIncomingConnection(NICPayload::read(&mut buf[1..])?)),
+            0x0 => Ok(Self::ConnectedPing(CPiPayload::read(&buf[1..])?)),
+            0x01 | 0x02 => Ok(Self::UnconnectedPing(UPiPayload::read(&buf[1..])?)),
+            0x03 => Ok(Self::ConnectedPong(CPoPayload::read(&buf[1..])?)),
+            0x05 => Ok(Self::OpenConnectionRequest1(OCRequest1Payload::read(
+                &buf[1..],
+            )?)),
+            0x06 => Ok(Self::OpenConnectionReply1(OCReply1Payload::read(
+                &buf[1..],
+            )?)),
+            0x07 => Ok(Self::OpenConnectionRequest2(OCRequest2Payload::read(
+                &buf[1..],
+            )?)),
+            0x08 => Ok(Self::OpenConnectionReply2(OCReply2Payload::read(
+                &buf[1..],
+            )?)),
+            0x09 => Ok(Self::ConnectionRequest(CRPayload::read(&buf[1..])?)),
+            0x10 => Ok(Self::ConnectionRequestAccepted(CRAcceptedPayload::read(
+                &buf[1..],
+            )?)),
+            0x13 => Ok(Self::NewIncomingConnection(NICPayload::read(&buf[1..])?)),
             0x15 => Ok(Self::Disconnect(())),
-            0x19 => Ok(Self::IncompatibleProtocolVersion(IPVPayload::read(&mut buf[1..])?)),
-            0x1c => Ok(Self::UnconnectedPong(UPoPayload::read(&mut buf[1..])?)),
-            _ => {
-                Err(std::io::Error::new(
-                    ErrorKind::Other,
-                    "Unknown packet",
-                ))
-            }
+            0x19 => Ok(Self::IncompatibleProtocolVersion(IPVPayload::read(
+                &buf[1..],
+            )?)),
+            0x1c => Ok(Self::UnconnectedPong(UPoPayload::read(&buf[1..])?)),
+            _ => Err(std::io::Error::new(ErrorKind::Other, "Unknown packet")),
         }
     }
     pub fn encode(self) -> Result<Vec<u8>> {
@@ -119,9 +126,7 @@ impl Packets{
                 buf.insert(0, 0x13);
                 Ok(buf)
             }
-            Packets::Disconnect(_payload) => {
-                Ok(vec![0x15, 1])
-            }
+            Packets::Disconnect(_payload) => Ok(vec![0x15, 1]),
             Packets::IncompatibleProtocolVersion(payload) => {
                 let mut buf = payload.write()?;
                 buf.insert(0, 0x19);
@@ -132,10 +137,7 @@ impl Packets{
                 buf.insert(0, 0x1c);
                 Ok(buf)
             }
-            Packets::Error(_p) => {
-                Ok(vec![])
-            }
-            //_ => {unimplemented!()}
+            Packets::Error(_p) => Ok(vec![]), //_ => {unimplemented!()}
         }
     }
 }

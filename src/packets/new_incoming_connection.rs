@@ -13,13 +13,13 @@ impl NewIncomingConnection {
         let mut cursor = Reader::new(payload);
         Ok(Self {
             server_address: cursor.read_address()?,
-            system_address: (|| -> [SocketAddr; 20] {
+            system_address: {
                 let mut addresses = vec![];
                 for _ in 1..20 {
                     addresses.push(cursor.read_address().unwrap());
                 }
                 (*addresses.as_slice()).try_into().unwrap()
-            })(),
+            },
             request_timestamp: cursor.read_u64(Endian::Big)?,
             accepted_timestamp: cursor.read_u64(Endian::Big)?,
         })

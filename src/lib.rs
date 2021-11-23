@@ -1,3 +1,5 @@
+#![feature(async_closure)]
+
 pub mod connection;
 pub mod packet;
 pub mod packets;
@@ -12,12 +14,13 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() {
-        Server::new(SocketAddr::new(
+        let server = Server::new(SocketAddr::new(
             IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
             19132,
         ),
         "MCPE;Dedicated Server;390;1.14.60;0;10;13253860892328930865;Bedrock level;Survival;1;19132;19133;".to_owned()
     )
         .await;
+        server.listen().await
     }
 }

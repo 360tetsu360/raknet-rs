@@ -11,13 +11,13 @@ pub struct OpenConnectionReply2 {
 }
 
 impl OpenConnectionReply2 {
-    pub fn new(guid : u64,address : SocketAddr,mtu : u16,encryption_enabled : bool) -> Self {
-        Self{
+    pub fn new(guid: u64, address: SocketAddr, mtu: u16, encryption_enabled: bool) -> Self {
+        Self {
             _magic: true,
-            guid: guid,
-            address : address,
-            mtu : mtu,
-            encryption_enabled : encryption_enabled as u8
+            guid,
+            address,
+            mtu,
+            encryption_enabled: encryption_enabled as u8,
         }
     }
     pub fn read(payload: &[u8]) -> Result<Self> {
