@@ -1,30 +1,41 @@
 use rand::random;
-use std::{collections::HashMap, io::{Error, Result}, net::SocketAddr, sync::Arc,time::Instant};
-use tokio::{net::{ToSocketAddrs, UdpSocket}, sync::Mutex};
+use std::{
+    collections::HashMap,
+    io::{Error, Result},
+    net::SocketAddr,
+    sync::Arc,
+    time::Instant,
+};
+use tokio::{
+    net::{ToSocketAddrs, UdpSocket},
+    sync::Mutex,
+};
 
 use crate::{
     connection::Connection,
+    packet::Packet,
     packets::{
         open_connection_reply1::OpenConnectionReply1, open_connection_reply2::OpenConnectionReply2,
         unconnected_pong::UnconnectedPong, Packets,
     },
-    packet::Packet
 };
 
 pub enum RaknetEvent {
     Packet(Packet),
-    Connected(SocketAddr,u64),
-    Disconnected(SocketAddr,u64),
-    Error(SocketAddr,Error)
+    Connected(SocketAddr, u64),
+    Disconnected(SocketAddr, u64),
+    Error(SocketAddr, Error),
 }
 
 impl Clone for RaknetEvent {
     fn clone(&self) -> Self {
         match &*self {
             RaknetEvent::Packet(p) => RaknetEvent::Packet(p.clone()),
-            RaknetEvent::Connected(p,e) => RaknetEvent::Connected(*p,*e),
-            RaknetEvent::Disconnected(p,e) => RaknetEvent::Disconnected(*p,*e),
-            RaknetEvent::Error(p,err) => RaknetEvent::Error(*p,std::io::Error::new(err.kind(), err.to_string()))
+            RaknetEvent::Connected(p, e) => RaknetEvent::Connected(*p, *e),
+            RaknetEvent::Disconnected(p, e) => RaknetEvent::Disconnected(*p, *e),
+            RaknetEvent::Error(p, err) => {
+                RaknetEvent::Error(*p, std::io::Error::new(err.kind(), err.to_string()))
+            }
         }
     }
 }
@@ -34,7 +45,7 @@ pub struct Server {
     pub connection: Arc<Mutex<HashMap<SocketAddr, Connection>>>,
     pub id: u64,
     pub title: Arc<String>,
-    time : Instant,
+    time: Instant,
 }
 
 impl Server {
@@ -44,8 +55,8 @@ impl Server {
             socket: Arc::new(UdpSocket::bind(address).await.unwrap()),
             connection: Arc::new(Mutex::new(HashMap::new())),
             id: random::<u64>(),
-            title : Arc::new(title),
-            time : Instant::now(),
+            title: Arc::new(title),
+            time: Instant::now(),
         }
     }
 
@@ -56,9 +67,9 @@ impl Server {
         let motd = self.title.clone();
         let time = self.time;
         tokio::spawn(async move {
-            let mut v = [0u8;1500];
+            let mut v = [0u8; 1500];
             loop {
-                let (_size,source) = socket2.recv_from(&mut v).await.unwrap();
+                let (_size, source) = socket2.recv_from(&mut v).await.unwrap();
                 if !connections2.lock().await.contains_key(&source) {
                     //not connected
                     let packet = match Packets::decode(&mut v) {
@@ -70,7 +81,7 @@ impl Server {
                     };
                     match packet {
                         Packets::UnconnectedPing(p) => {
-                            let pong = UnconnectedPong::new(p.time,id, motd.to_string());
+                            let pong = UnconnectedPong::new(p.time, id, motd.to_string());
                             if let Ok(data) = Packets::UnconnectedPong(pong).encode() {
                                 let _ = socket2.send_to(&data, source).await.unwrap();
                             };
@@ -85,7 +96,10 @@ impl Server {
                             let ocreply2 = OpenConnectionReply2::new(id, source, p.mtu, false);
                             if let Ok(data) = Packets::OpenConnectionReply2(ocreply2).encode() {
                                 let _ = socket2.send_to(&data, source).await.unwrap();
-                                connections2.lock().await.insert(source, Connection::new(source,socket2.clone(),id,time));
+                                connections2.lock().await.insert(
+                                    source,
+                                    Connection::new(source, socket2.clone(), id, time),
+                                );
                             };
                             //connected!
                         }
@@ -99,11 +113,11 @@ impl Server {
     }
 
     pub async fn recv(&self) -> Result<Vec<RaknetEvent>> {
-        let mut events : Vec<RaknetEvent> = vec![];
+        let mut events: Vec<RaknetEvent> = vec![];
         let mut disconnected_clients = vec![];
-        for (_address,connection) in self.connection.lock().await.iter_mut() {
+        for (_address, connection) in self.connection.lock().await.iter_mut() {
             for event in connection.event_queue.clone() {
-                if let RaknetEvent::Disconnected(addr,_guid) = event {
+                if let RaknetEvent::Disconnected(addr, _guid) = event {
                     disconnected_clients.push(addr);
                 }
                 events.push(event);
