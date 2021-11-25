@@ -63,7 +63,7 @@ jobs:
     steps:
       - name: "Upload code coverage"
         run: |
-          sudo apt install -y libcurl4-nss-dev libelf-dev
+          sudo apt install -y libcurl4-nss-dev libelf-dev libdw-dev
           wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
           tar xzf master.tar.gz &&
           cd kcov-master &&
