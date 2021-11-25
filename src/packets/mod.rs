@@ -10,6 +10,8 @@ pub mod open_connection_request1;
 pub mod open_connection_request2;
 pub mod unconnected_ping;
 pub mod unconnected_pong;
+pub mod frame;
+pub mod frame_set;
 
 use std::io::{ErrorKind, Result};
 

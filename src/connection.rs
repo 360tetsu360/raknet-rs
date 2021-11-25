@@ -1,4 +1,4 @@
-use crate::raknet::RaknetEvent;
+use crate::{packets::frame_set::FrameSet, raknet::RaknetEvent};
 use std::{net::SocketAddr, sync::Arc, time::Instant};
 use tokio::net::UdpSocket;
 
@@ -29,7 +29,10 @@ impl Connection {
             self.disconnect();
         }
     }
-    pub fn handle_datagram(&self, _buff: &[u8]) {}
+    pub fn handle_datagram(&self, buff: &[u8]) {
+        let frame_set = FrameSet::decode(buff).expect("failed to read packet");
+        println!("{} {}",frame_set.sequence_number,frame_set.datas.len());
+    }
     pub fn disconnect(&mut self) {
         self.event_queue
             .push(RaknetEvent::Disconnected(self.address, self.guid));

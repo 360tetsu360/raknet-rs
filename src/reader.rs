@@ -25,6 +25,10 @@ impl<'a> Reader<'a> {
             strbuf: Vec::with_capacity(0),
         }
     }
+    pub fn read(&mut self,buf: &mut [u8]) -> Result<()>{
+        self.cursor.read_exact(buf)?;
+        Ok(())
+    }
     pub fn read_u8(&mut self) -> Result<u8> {
         self.cursor.read_u8()
     }

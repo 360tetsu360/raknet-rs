@@ -69,10 +69,10 @@ impl Server {
         tokio::spawn(async move {
             let mut v = [0u8; 1500];
             loop {
-                let (_size, source) = socket2.recv_from(&mut v).await.unwrap();
+                let (size, source) = socket2.recv_from(&mut v).await.unwrap();
                 if !connections2.lock().await.contains_key(&source) {
                     //not connected
-                    let packet = match Packets::decode(&mut v) {
+                    let packet = match Packets::decode(&mut v[..size]) {
                         Ok(s) => s,
                         Err(err) => {
                             println!("{}", &err);
@@ -106,7 +106,7 @@ impl Server {
                         _ => {}
                     }
                 } else {
-                    connections2.lock().await[&source].handle_datagram(v.as_mut());
+                    connections2.lock().await[&source].handle_datagram(&v[..size]);
                 }
             }
         });
