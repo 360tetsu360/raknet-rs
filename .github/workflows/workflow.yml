@@ -61,6 +61,8 @@ jobs:
     needs: 
       - test
     steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v2
       - name: Run cargo-tarpaulin
         uses: actions-rs/tarpaulin@v0.1
         with:
