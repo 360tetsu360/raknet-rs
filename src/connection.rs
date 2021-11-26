@@ -53,8 +53,7 @@ impl Connection {
             self.send_ack(self.received_packet.clone().as_slice());
         }
     }
-    fn send_ack(&mut self, packets: &[u32]) {
-        for _packet in packets {}
+    fn send_ack(&mut self, _packets: &[u32]) {
     }
     fn handle_ack(&self, _buff: &[u8]) {}
 
