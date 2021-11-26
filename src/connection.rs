@@ -7,7 +7,6 @@ const DATAGRAM_FLAG: u8 = 0x80;
 const ACK_FLAG: u8 = 0x40;
 // bitFlagNACK is set for every NACK packet.
 const NACK_FLAG: u8 = 0x20;
-
 pub struct Connection {
     pub address: SocketAddr,
     _socket: Arc<UdpSocket>,
@@ -63,7 +62,6 @@ impl Connection {
         let frame_set = FrameSet::decode(buff).expect("failed to read packet");
         self.received_packet.push(frame_set.sequence_number);
     }
-
     pub fn disconnect(&mut self) {
         self.event_queue
             .push(RaknetEvent::Disconnected(self.address, self.guid));

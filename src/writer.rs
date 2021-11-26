@@ -84,7 +84,7 @@ impl Writer {
                 IpAddr::V6(ip) => ip.octets().to_vec(),
                 _ => vec![0; 16],
             };
-            self.cursor.write_all(&ip_bytes)?;
+            self.write(&ip_bytes)?;
             self.cursor.write_i32::<BigEndian>(0)?;
             Ok(())
         }
