@@ -1,23 +1,22 @@
 use std::io::Result;
 
-use crate::reader::{Endian, Reader};
 use super::frame::Frame;
+use crate::reader::{Endian, Reader};
 
 pub struct FrameSet {
     pub sequence_number: u32,
-    pub datas : Vec<Frame>
+    pub datas: Vec<Frame>,
 }
 
 impl FrameSet {
     pub fn decode(payload: &[u8]) -> Result<Self> {
         let size = payload.len();
         let mut cursor = Reader::new(payload);
-        cursor.read_u8()?;
         let sequence_number = cursor.read_u24le(Endian::Big)?;
-        println!("{}",sequence_number);
-        let mut frame_set = Self{
+        println!("{}", sequence_number);
+        let mut frame_set = Self {
             sequence_number,
-            datas : vec![]
+            datas: vec![],
         };
         while cursor.pos() < size as u64 {
             frame_set.datas.push(Frame::decode(&mut cursor)?)

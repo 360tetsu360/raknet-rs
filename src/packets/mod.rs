@@ -2,6 +2,8 @@ pub mod connected_ping;
 pub mod connected_pong;
 pub mod connection_request;
 pub mod connection_request_accepted;
+pub mod frame;
+pub mod frame_set;
 pub mod incompatible_protocol_version;
 pub mod new_incoming_connection;
 pub mod open_connection_reply1;
@@ -10,10 +12,8 @@ pub mod open_connection_request1;
 pub mod open_connection_request2;
 pub mod unconnected_ping;
 pub mod unconnected_pong;
-pub mod frame;
-pub mod frame_set;
 
-use std::io::{ErrorKind, Result};
+use std::io::{Error, ErrorKind, Result};
 
 use connected_ping::ConnectedPing as CPiPayload;
 use connected_pong::ConnectedPong as CPoPayload;
@@ -42,6 +42,7 @@ pub enum Packets {
     NewIncomingConnection(NICPayload),
     IncompatibleProtocolVersion(IPVPayload),
     Disconnect(()),
+    Unknown(Vec<u8>),
     Error(()),
 }
 
@@ -73,7 +74,7 @@ impl Packets {
                 &buf[1..],
             )?)),
             0x1c => Ok(Self::UnconnectedPong(UPoPayload::read(&buf[1..])?)),
-            _ => Err(std::io::Error::new(ErrorKind::Other, "Unknown packet")),
+            _ => Ok(Self::Unknown(buf.to_vec())),
         }
     }
     pub fn encode(self) -> Result<Vec<u8>> {
@@ -139,7 +140,50 @@ impl Packets {
                 buf.insert(0, 0x1c);
                 Ok(buf)
             }
+            Packets::Unknown(p) => Ok(p),
             Packets::Error(_p) => Ok(vec![]), //_ => {unimplemented!()}
+        }
+    }
+}
+
+pub enum Reliability {
+    Unreliable,
+    UnreliableSequenced,
+    Reliable,
+    ReliableOrdered,
+    ReliableSequenced,
+    UnreliableACKReceipt,
+    ReliableACKReceipt,
+    ReliableOrderedACKReceipt,
+}
+
+impl Reliability {
+    pub fn new(byte: u8) -> Result<Self> {
+        match byte {
+            0x0 => Ok(Self::Unreliable),
+            0x1 => Ok(Self::UnreliableSequenced),
+            0x2 => Ok(Self::Reliable),
+            0x3 => Ok(Self::ReliableOrdered),
+            0x4 => Ok(Self::ReliableSequenced),
+            0x5 => Ok(Self::UnreliableACKReceipt),
+            0x6 => Ok(Self::ReliableACKReceipt),
+            0x7 => Ok(Self::ReliableOrderedACKReceipt),
+            _ => Err(Error::new(
+                ErrorKind::Other,
+                format!("unknown reliability byte {}", &byte),
+            )),
+        }
+    }
+    pub fn to_byte(&self) -> u8 {
+        match self {
+            Self::Unreliable => 0x0,
+            Self::UnreliableSequenced => 0x1,
+            Self::Reliable => 0x2,
+            Self::ReliableOrdered => 0x3,
+            Self::ReliableSequenced => 0x4,
+            Self::UnreliableACKReceipt => 0x5,
+            Self::ReliableACKReceipt => 0x6,
+            Self::ReliableOrderedACKReceipt => 0x7,
         }
     }
 }

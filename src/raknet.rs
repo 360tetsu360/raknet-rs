@@ -50,7 +50,6 @@ pub struct Server {
 
 impl Server {
     pub async fn new(address: impl ToSocketAddrs, title: String) -> Self {
-        println!("packet!");
         Self {
             socket: Arc::new(UdpSocket::bind(address).await.unwrap()),
             connection: Arc::new(Mutex::new(HashMap::new())),
@@ -106,7 +105,12 @@ impl Server {
                         _ => {}
                     }
                 } else {
-                    connections2.lock().await[&source].handle_datagram(&v[..size]);
+                    connections2
+                        .lock()
+                        .await
+                        .get_mut(&source)
+                        .unwrap()
+                        .handle(&v[..size]); //todo : error handling
                 }
             }
         });
