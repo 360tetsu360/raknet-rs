@@ -18,7 +18,7 @@ mod tests {
         "MCPE;Dedicated Server;390;1.17.42;0;10;13253860892328930865;Bedrock level;Survival;1;19132;19133;".to_owned()
         ).await;
         server.listen().await;
-        loop {
+        for _ in 0..0{
             tokio::time::sleep(std::time::Duration::from_millis(50)).await;
             let events = server.recv().await.unwrap();
             for event in events {
