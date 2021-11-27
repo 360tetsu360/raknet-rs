@@ -71,8 +71,5 @@ jobs:
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v1.0.2
-        
     runs-on: ubuntu-latest
-    env:
-      CODECOV_TOKEN: dbc31b4a-6c55-4da5-8ed9-a3505440f6ed
 
