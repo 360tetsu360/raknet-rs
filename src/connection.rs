@@ -39,6 +39,9 @@ impl Connection {
     }
     pub fn handle(&mut self, buff: &[u8]) {
         let header = buff[0];
+
+        self.last_recieve = self.timer.elapsed().as_millis();
+
         if header & ACK_FLAG != 0 {
             self.handle_ack(&buff[1..]);
         } else if header & NACK_FLAG != 0 {
