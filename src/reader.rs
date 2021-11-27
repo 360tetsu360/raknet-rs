@@ -1,6 +1,5 @@
 use byteorder::{BigEndian, LittleEndian, NativeEndian, ReadBytesExt};
 use std::{
-    convert::TryInto,
     io::{Cursor, Read, Result},
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     str,
@@ -66,7 +65,7 @@ impl<'a> Reader<'a> {
     }
 
     pub fn read_string(&'a mut self) -> &'a str {
-        let size = self.clone().read_u16(Endian::Big).unwrap();
+        let size = self.read_u16(Endian::Big).unwrap();
         self.strbuf.resize(size.into(), 0);
         assert!(self.cursor.read(&mut self.strbuf).unwrap() == size.into());
         str::from_utf8(&self.strbuf).unwrap()
@@ -99,21 +98,22 @@ impl<'a> Reader<'a> {
             let port = self.cursor.read_u16::<LittleEndian>()?;
             self.next(4);
             let mut addr_buf = [0; 16];
-
             self.cursor
                 .read_exact(&mut addr_buf)
                 .expect("Unable to read ipv6 address bytes");
+
+            let mut address_cursor = Reader::new(&addr_buf);
             self.next(4);
             Ok(SocketAddr::new(
                 IpAddr::V6(Ipv6Addr::new(
-                    u16::from_be_bytes((&addr_buf[..1]).try_into().unwrap()),
-                    u16::from_be_bytes((&addr_buf[2..3]).try_into().unwrap()),
-                    u16::from_be_bytes((&addr_buf[4..5]).try_into().unwrap()),
-                    u16::from_be_bytes((&addr_buf[6..7]).try_into().unwrap()),
-                    u16::from_be_bytes((&addr_buf[8..9]).try_into().unwrap()),
-                    u16::from_be_bytes((&addr_buf[10..11]).try_into().unwrap()),
-                    u16::from_be_bytes((&addr_buf[12..13]).try_into().unwrap()),
-                    u16::from_be_bytes((&addr_buf[14..15]).try_into().unwrap()),
+                    address_cursor.read_u16(Endian::Big)?,
+                    address_cursor.read_u16(Endian::Big)?,
+                    address_cursor.read_u16(Endian::Big)?,
+                    address_cursor.read_u16(Endian::Big)?,
+                    address_cursor.read_u16(Endian::Big)?,
+                    address_cursor.read_u16(Endian::Big)?,
+                    address_cursor.read_u16(Endian::Big)?,
+                    address_cursor.read_u16(Endian::Big)?,
                 )),
                 port,
             ))

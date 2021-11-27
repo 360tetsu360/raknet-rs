@@ -21,8 +21,9 @@ impl OpenConnectionRequest1 {
         let mut cursor = Writer::new(vec![]);
         cursor.write_magic()?;
         cursor.write_u8(self.protocol_version)?;
-        cursor
-            .write(vec![0; (self.mtu_size as usize) - (cursor.pos() as usize + 28)].as_slice())?;
+        cursor.write(
+            vec![0; (self.mtu_size as usize) - (cursor.pos() as usize + 28) - 1].as_slice(),
+        )?;
 
         Ok(cursor.get_raw_payload())
     }

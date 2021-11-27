@@ -88,6 +88,9 @@ impl Connection {
                     let frame = Frame::new(Reliability::ReliableOrdered, &buff);
                     self.send(frame);
                 }
+                Packets::NewIncomingConnection(p) => {
+                    println!("{}", p.server_address);
+                }
                 Packets::Disconnect(_) => {
                     self.disconnect();
                 }
