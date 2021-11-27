@@ -1,3 +1,4 @@
+pub mod ack;
 pub mod connected_ping;
 pub mod connected_pong;
 pub mod connection_request;
@@ -12,7 +13,6 @@ pub mod open_connection_request1;
 pub mod open_connection_request2;
 pub mod unconnected_ping;
 pub mod unconnected_pong;
-
 use std::io::{Error, ErrorKind, Result};
 
 use connected_ping::ConnectedPing as CPiPayload;
@@ -47,7 +47,7 @@ pub enum Packets {
 }
 
 impl Packets {
-    pub fn decode(buf: &mut [u8]) -> Result<Self> {
+    pub fn decode(buf: &[u8]) -> Result<Self> {
         match buf[0] {
             0x0 => Ok(Self::ConnectedPing(CPiPayload::read(&buf[1..])?)),
             0x01 | 0x02 => Ok(Self::UnconnectedPing(UPiPayload::read(&buf[1..])?)),
@@ -146,6 +146,7 @@ impl Packets {
     }
 }
 
+#[derive(Clone)]
 pub enum Reliability {
     Unreliable,
     UnreliableSequenced,
@@ -185,5 +186,28 @@ impl Reliability {
             Self::ReliableACKReceipt => 0x6,
             Self::ReliableOrderedACKReceipt => 0x7,
         }
+    }
+
+    pub fn reliable(&self) -> bool {
+        matches!(
+            self,
+            Reliability::Reliable | Reliability::ReliableOrdered | Reliability::ReliableSequenced
+        )
+    }
+
+    pub fn sequenced_or_ordered(&self) -> bool {
+        matches!(
+            self,
+            Reliability::UnreliableSequenced
+                | Reliability::ReliableOrdered
+                | Reliability::ReliableSequenced
+        )
+    }
+
+    pub fn sequenced(&self) -> bool {
+        matches!(
+            self,
+            Reliability::UnreliableSequenced | Reliability::ReliableSequenced
+        )
     }
 }

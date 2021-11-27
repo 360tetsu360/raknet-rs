@@ -1,10 +1,14 @@
 use std::io::Result;
 
-use crate::reader::{Endian, Reader};
+use crate::{
+    reader::{Endian, Reader},
+    writer::Writer,
+};
 
 use super::Reliability;
 const SPLIT_FLAG: u8 = 0x10;
 
+#[derive(Clone)]
 pub struct Frame {
     pub reliability: Reliability,
 
@@ -20,6 +24,19 @@ pub struct Frame {
 }
 
 impl Frame {
+    pub fn new(reliability: Reliability, data: &[u8]) -> Self {
+        Self {
+            reliability,
+            message_index: 0,
+            sequence_index: 0,
+            order_index: 0,
+            split: false,
+            split_count: 0,
+            split_index: 0,
+            split_id: 0,
+            data: data.to_vec(),
+        }
+    }
     pub fn decode(cursor: &mut Reader) -> Result<Self> {
         let mut packet = Self {
             reliability: Reliability::new(0)?,
@@ -41,15 +58,15 @@ impl Frame {
         let mut packet_length = cursor.read_u16(Endian::Big)?;
         packet_length >>= 3;
 
-        if packet.reliable() {
+        if packet.reliability.reliable() {
             packet.message_index = cursor.read_u24le(Endian::Little)?;
         }
 
-        if packet.sequenced() {
+        if packet.reliability.sequenced() {
             packet.sequence_index = cursor.read_u24le(Endian::Little)?;
         }
 
-        if packet.sequenced_or_ordered() {
+        if packet.reliability.sequenced_or_ordered() {
             packet.order_index = cursor.read_u24le(Endian::Little)?;
             cursor.next(1);
         }
@@ -66,26 +83,29 @@ impl Frame {
         Ok(packet)
     }
 
-    fn reliable(&self) -> bool {
-        matches!(
-            self.reliability,
-            Reliability::Reliable | Reliability::ReliableOrdered | Reliability::ReliableSequenced
-        )
-    }
-
-    fn sequenced_or_ordered(&self) -> bool {
-        matches!(
-            self.reliability,
-            Reliability::UnreliableSequenced
-                | Reliability::ReliableOrdered
-                | Reliability::ReliableSequenced
-        )
-    }
-
-    fn sequenced(&self) -> bool {
-        matches!(
-            self.reliability,
-            Reliability::UnreliableSequenced | Reliability::ReliableSequenced
-        )
+    pub fn encode(&self, cursor: &mut Writer) -> Result<()> {
+        let mut header = self.reliability.to_byte() << 5;
+        if self.split {
+            header |= SPLIT_FLAG;
+        }
+        cursor.write_u8(header)?;
+        cursor.write_u16((self.data.len() * 8) as u16, Endian::Big)?;
+        if self.reliability.reliable() {
+            cursor.write_u24le(self.message_index, Endian::Little)?;
+        }
+        if self.reliability.sequenced() {
+            cursor.write_u24le(self.sequence_index, Endian::Little)?;
+        }
+        if self.reliability.sequenced_or_ordered() {
+            cursor.write_u24le(self.order_index, Endian::Little)?;
+            cursor.write_u8(0)?;
+        }
+        if self.split {
+            cursor.write_u32(self.split_count, Endian::Big)?;
+            cursor.write_u16(self.split_id, Endian::Big)?;
+            cursor.write_u32(self.split_index, Endian::Big)?;
+        }
+        cursor.write(&self.data)?;
+        Ok(())
     }
 }

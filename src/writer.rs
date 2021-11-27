@@ -33,12 +33,18 @@ impl Writer {
             Endian::Native => self.cursor.write_u16::<NativeEndian>(v),
         }
     }
-
-    pub fn write_u24le(&mut self, v: u32, n: Endian) -> Result<()> {
+    pub fn write_u32(&mut self, v: u32, n: Endian) -> Result<()> {
         match n {
             Endian::Big => self.cursor.write_u32::<BigEndian>(v),
             Endian::Little => self.cursor.write_u32::<LittleEndian>(v),
             Endian::Native => self.cursor.write_u32::<NativeEndian>(v),
+        }
+    }
+    pub fn write_u24le(&mut self, v: u32, n: Endian) -> Result<()> {
+        match n {
+            Endian::Big => self.cursor.write_u24::<BigEndian>(v),
+            Endian::Little => self.cursor.write_u24::<LittleEndian>(v),
+            Endian::Native => self.cursor.write_u24::<NativeEndian>(v),
         }
     }
 
