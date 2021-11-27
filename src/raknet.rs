@@ -29,7 +29,7 @@ pub enum RaknetEvent {
 
 impl Clone for RaknetEvent {
     fn clone(&self) -> Self {
-        match &*self {
+        match self {
             RaknetEvent::Packet(p) => RaknetEvent::Packet(p.clone()),
             RaknetEvent::Connected(p, e) => RaknetEvent::Connected(*p, *e),
             RaknetEvent::Disconnected(p, e) => RaknetEvent::Disconnected(*p, *e),
