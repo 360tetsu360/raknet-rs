@@ -71,5 +71,7 @@ jobs:
 
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v1.0.2
+        with:
+          token: ${{ secret.CODECOV_TOKEN }}
     runs-on: ubuntu-latest
 
