@@ -1,7 +1,9 @@
+use crate::packets::Packet;
 use crate::reader::{Endian, Reader};
 use crate::writer::Writer;
 use std::io::Result;
 
+#[derive(Clone)]
 pub struct OpenConnectionReply1 {
     _magic: bool,
     pub guid: u64,
@@ -18,7 +20,11 @@ impl OpenConnectionReply1 {
             mtu_size,
         }
     }
-    pub fn read(payload: &[u8]) -> Result<Self> {
+}
+
+impl Packet for OpenConnectionReply1 {
+    const ID: u8 = 0x6;
+    fn read(payload: &[u8]) -> Result<Self> {
         let mut cursor = Reader::new(payload);
         Ok(Self {
             _magic: cursor.read_magic()?,
@@ -27,7 +33,7 @@ impl OpenConnectionReply1 {
             mtu_size: cursor.read_u16(Endian::Big)?,
         })
     }
-    pub fn write(&self) -> Result<Vec<u8>> {
+    fn write(&self) -> Result<Vec<u8>> {
         let mut cursor = Writer::new(vec![]);
         cursor.write_magic()?;
         cursor.write_u64(self.guid, Endian::Big)?;

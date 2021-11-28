@@ -13,15 +13,18 @@ use tokio::{
 
 use crate::{
     connection::Connection,
-    packet::Packet,
+    packet::RaknetPacket,
     packets::{
-        open_connection_reply1::OpenConnectionReply1, open_connection_reply2::OpenConnectionReply2,
-        unconnected_pong::UnconnectedPong, Packets,
+        decode, encode, open_connection_reply1::OpenConnectionReply1,
+        open_connection_reply2::OpenConnectionReply2,
+        open_connection_request1::OpenConnectionRequest1,
+        open_connection_request2::OpenConnectionRequest2, unconnected_ping::UnconnectedPing,
+        unconnected_pong::UnconnectedPong, Packet,
     },
 };
 
 pub enum RaknetEvent {
-    Packet(Packet),
+    Packet(RaknetPacket),
     Connected(SocketAddr, u64),
     Disconnected(SocketAddr, u64),
     Error(SocketAddr, Error),
@@ -29,7 +32,7 @@ pub enum RaknetEvent {
 
 impl Clone for RaknetEvent {
     fn clone(&self) -> Self {
-        match &*self {
+        match self {
             RaknetEvent::Packet(p) => RaknetEvent::Packet(p.clone()),
             RaknetEvent::Connected(p, e) => RaknetEvent::Connected(*p, *e),
             RaknetEvent::Disconnected(p, e) => RaknetEvent::Disconnected(*p, *e),
@@ -71,29 +74,26 @@ impl Server {
                 let (size, source) = socket2.recv_from(&mut v).await.unwrap();
                 if !connections2.lock().await.contains_key(&source) {
                     //not connected
-                    let packet = match Packets::decode(&v[..size]) {
-                        Ok(s) => s,
-                        Err(err) => {
-                            println!("{}", &err);
-                            Packets::Error(())
-                        }
-                    };
-                    match packet {
-                        Packets::UnconnectedPing(p) => {
+                    let buff = &v[..size];
+                    match buff[0] {
+                        UnconnectedPing::ID => {
+                            let p = decode::<UnconnectedPing>(buff).unwrap();
                             let pong = UnconnectedPong::new(p.time, id, motd.to_string());
-                            if let Ok(data) = Packets::UnconnectedPong(pong).encode() {
+                            if let Ok(data) = encode::<UnconnectedPong>(pong) {
                                 let _ = socket2.send_to(&data, source).await.unwrap();
                             };
                         }
-                        Packets::OpenConnectionRequest1(p) => {
+                        OpenConnectionRequest1::ID => {
+                            let p = decode::<OpenConnectionRequest1>(buff).unwrap();
                             let ocreply1 = OpenConnectionReply1::new(id, false, p.mtu_size);
-                            if let Ok(data) = Packets::OpenConnectionReply1(ocreply1).encode() {
+                            if let Ok(data) = encode::<OpenConnectionReply1>(ocreply1) {
                                 let _ = socket2.send_to(&data, source).await.unwrap();
                             };
                         }
-                        Packets::OpenConnectionRequest2(p) => {
+                        OpenConnectionRequest2::ID => {
+                            let p = decode::<OpenConnectionRequest2>(buff).unwrap();
                             let ocreply2 = OpenConnectionReply2::new(id, source, p.mtu, false);
-                            if let Ok(data) = Packets::OpenConnectionReply2(ocreply2).encode() {
+                            if let Ok(data) = encode::<OpenConnectionReply2>(ocreply2) {
                                 let _ = socket2.send_to(&data, source).await.unwrap();
                                 connections2.lock().await.insert(
                                     source,

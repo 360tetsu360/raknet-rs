@@ -1,14 +1,18 @@
+use crate::packets::Packet;
 use crate::reader::{Endian, Reader};
 use crate::writer::Writer;
 use std::io::Result;
+
+#[derive(Clone)]
 pub struct UnconnectedPing {
     pub time: u64,
     _magic: bool,
     pub guid: u64,
 }
 
-impl UnconnectedPing {
-    pub fn read(payload: &[u8]) -> Result<Self> {
+impl Packet for UnconnectedPing {
+    const ID: u8 = 0x01;
+    fn read(payload: &[u8]) -> Result<Self> {
         let mut cursor = Reader::new(payload);
         Ok(Self {
             time: cursor.read_u64(Endian::Big)?,
@@ -16,7 +20,7 @@ impl UnconnectedPing {
             guid: cursor.read_u64(Endian::Big)?,
         })
     }
-    pub fn write(&self) -> Result<Vec<u8>> {
+    fn write(&self) -> Result<Vec<u8>> {
         let mut cursor = Writer::new(vec![]);
         cursor.write_u64(self.time, Endian::Big)?;
         cursor.write_magic()?;

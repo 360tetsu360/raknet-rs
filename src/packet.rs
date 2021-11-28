@@ -62,7 +62,7 @@ impl ACKQueue {
 }
 
 #[derive(Clone)]
-pub struct Packet {
+pub struct RaknetPacket {
     pub address: SocketAddr,
     pub guid: u64,
     pub length: usize,

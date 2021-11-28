@@ -1,7 +1,9 @@
+use crate::packets::Packet;
 use crate::reader::{Endian, Reader};
 use crate::writer::Writer;
 use std::{io::Result, net::SocketAddr};
 
+#[derive(Clone)]
 pub struct ConnectionRequestAccepted {
     pub client_address: SocketAddr,
     pub system_index: u16,
@@ -22,7 +24,11 @@ impl ConnectionRequestAccepted {
             accepted_timestamp,
         }
     }
-    pub fn read(payload: &[u8]) -> Result<Self> {
+}
+
+impl Packet for ConnectionRequestAccepted {
+    const ID: u8 = 0x10;
+    fn read(payload: &[u8]) -> Result<Self> {
         let mut cursor = Reader::new(payload);
         Ok(Self {
             client_address: cursor.read_address()?,
@@ -34,7 +40,7 @@ impl ConnectionRequestAccepted {
             accepted_timestamp: cursor.read_u64(Endian::Big)?,
         })
     }
-    pub fn write(&self) -> Result<Vec<u8>> {
+    fn write(&self) -> Result<Vec<u8>> {
         let mut cursor = Writer::new(vec![]);
         cursor.write_address(self.client_address)?;
         cursor.write_u16(self.system_index, Endian::Big)?;

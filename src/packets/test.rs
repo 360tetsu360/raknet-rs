@@ -1,4 +1,11 @@
-use super::Packets;
+use crate::packets::{
+    connection_request::ConnectionRequest, connection_request_accepted::ConnectionRequestAccepted,
+    decode, encode, new_incoming_connection::NewIncomingConnection,
+    open_connection_reply1::OpenConnectionReply1, open_connection_reply2::OpenConnectionReply2,
+    open_connection_request1::OpenConnectionRequest1,
+    open_connection_request2::OpenConnectionRequest2, unconnected_ping::UnconnectedPing,
+    unconnected_pong::UnconnectedPong,
+};
 
 const UNCONNECTED_PING_DATA: [u8; 33] = [
     0x01, 0x00, 0x00, 0x00, 0x00, 0x0f, 0x3d, 0x64, 0x94, 0x00, 0xff, 0xff, 0x00, 0xfe, 0xfe, 0xfe,
@@ -193,49 +200,59 @@ const NEW_INCOMING_CONNECTION_DATA: [u8; 198] = [
 ];
 #[test]
 fn raknet_packet() {
-    let unconnected_ping = Packets::decode(&UNCONNECTED_PING_DATA).unwrap();
-    let unconnected_ping_encoded = unconnected_ping.encode().unwrap();
+    let unconnected_ping = decode::<UnconnectedPing>(&UNCONNECTED_PING_DATA).unwrap();
+    let unconnected_ping_encoded = encode::<UnconnectedPing>(unconnected_ping).unwrap();
     debug_assert_eq!(&unconnected_ping_encoded, &UNCONNECTED_PING_DATA);
 
-    let unconnected_pong = Packets::decode(&UNCONNECTED_PONG_DATA).unwrap();
-    let unconnected_pong_encoded = unconnected_pong.encode().unwrap();
+    let unconnected_pong = decode::<UnconnectedPong>(&UNCONNECTED_PONG_DATA).unwrap();
+    let unconnected_pong_encoded = encode::<UnconnectedPong>(unconnected_pong).unwrap();
     debug_assert_eq!(&unconnected_pong_encoded, &UNCONNECTED_PONG_DATA);
 
-    let open_connection_request1 = Packets::decode(&OPEN_CONNECTION_REQUEST1_DATA).unwrap();
-    let open_connection_request1_encoded = open_connection_request1.encode().unwrap();
+    let open_connection_request1 =
+        decode::<OpenConnectionRequest1>(&OPEN_CONNECTION_REQUEST1_DATA).unwrap();
+    let open_connection_request1_encoded =
+        encode::<OpenConnectionRequest1>(open_connection_request1).unwrap();
     debug_assert_eq!(
         &open_connection_request1_encoded,
         &OPEN_CONNECTION_REQUEST1_DATA
     );
 
-    let open_connection_request2 = Packets::decode(&OPEN_CONNECTION_REQUEST2_DATA).unwrap();
-    let open_connection_request2_encoded = open_connection_request2.encode().unwrap();
+    let open_connection_request2 =
+        decode::<OpenConnectionRequest2>(&OPEN_CONNECTION_REQUEST2_DATA).unwrap();
+    let open_connection_request2_encoded =
+        encode::<OpenConnectionRequest2>(open_connection_request2).unwrap();
     debug_assert_eq!(
         &open_connection_request2_encoded,
         &OPEN_CONNECTION_REQUEST2_DATA
     );
 
-    let open_connection_reply1 = Packets::decode(&OPEN_CONNECTION_REPLY1_DATA).unwrap();
-    let open_connection_reply1_encoded = open_connection_reply1.encode().unwrap();
+    let open_connection_reply1 =
+        decode::<OpenConnectionReply1>(&OPEN_CONNECTION_REPLY1_DATA).unwrap();
+    let open_connection_reply1_encoded =
+        encode::<OpenConnectionReply1>(open_connection_reply1).unwrap();
     debug_assert_eq!(
         &open_connection_reply1_encoded,
         &OPEN_CONNECTION_REPLY1_DATA
     );
 
-    let open_connection_reply2 = Packets::decode(&OPEN_CONNECTION_REPLY2_DATA).unwrap();
-    let open_connection_reply2_encoded = open_connection_reply2.encode().unwrap();
+    let open_connection_reply2 =
+        decode::<OpenConnectionReply2>(&OPEN_CONNECTION_REPLY2_DATA).unwrap();
+    let open_connection_reply2_encoded =
+        encode::<OpenConnectionReply2>(open_connection_reply2).unwrap();
     debug_assert_eq!(
         &open_connection_reply2_encoded,
         &OPEN_CONNECTION_REPLY2_DATA
     );
 
-    let connection_request = Packets::decode(&CONNECTION_REQUEST_DATA).unwrap();
-    let connection_request_encoded = connection_request.encode().unwrap();
+    let connection_request = decode::<ConnectionRequest>(&CONNECTION_REQUEST_DATA).unwrap();
+    let connection_request_encoded = encode::<ConnectionRequest>(connection_request).unwrap();
     debug_assert_eq!(&connection_request_encoded, &CONNECTION_REQUEST_DATA);
 
-    let connection_request_accepted = Packets::decode(&CONNECTION_REQUEST_ACCEPTED_DATA).unwrap();
-    connection_request_accepted.encode().unwrap();
+    let connection_request_accepted =
+        decode::<ConnectionRequestAccepted>(&CONNECTION_REQUEST_ACCEPTED_DATA).unwrap();
+    encode::<ConnectionRequestAccepted>(connection_request_accepted).unwrap();
 
-    let new_incoming_connection = Packets::decode(&NEW_INCOMING_CONNECTION_DATA).unwrap();
-    new_incoming_connection.encode().unwrap();
+    let new_incoming_connection =
+        decode::<NewIncomingConnection>(&NEW_INCOMING_CONNECTION_DATA).unwrap();
+    encode::<NewIncomingConnection>(new_incoming_connection).unwrap();
 }

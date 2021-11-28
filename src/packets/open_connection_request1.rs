@@ -1,15 +1,18 @@
+use crate::packets::Packet;
 use crate::reader::Reader;
 use crate::writer::Writer;
 use std::{convert::TryInto, io::Result};
 
+#[derive(Clone)]
 pub struct OpenConnectionRequest1 {
     _magic: bool,
     pub protocol_version: u8,
     pub mtu_size: u16, //[u8;mtusize]
 }
 
-impl OpenConnectionRequest1 {
-    pub fn read(payload: &[u8]) -> Result<Self> {
+impl Packet for OpenConnectionRequest1 {
+    const ID: u8 = 0x5;
+    fn read(payload: &[u8]) -> Result<Self> {
         let mut cursor = Reader::new(payload);
         Ok(Self {
             _magic: cursor.read_magic()?,
@@ -17,7 +20,7 @@ impl OpenConnectionRequest1 {
             mtu_size: (payload.len() + 29).try_into().unwrap(),
         })
     }
-    pub fn write(&self) -> Result<Vec<u8>> {
+    fn write(&self) -> Result<Vec<u8>> {
         let mut cursor = Writer::new(vec![]);
         cursor.write_magic()?;
         cursor.write_u8(self.protocol_version)?;

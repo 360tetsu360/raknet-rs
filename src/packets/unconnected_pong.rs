@@ -2,6 +2,9 @@ use crate::reader::{Endian, Reader};
 use crate::writer::Writer;
 use std::io::Result;
 
+use crate::packets::Packet;
+
+#[derive(Clone)]
 pub struct UnconnectedPong {
     pub time: u64,
     pub guid: u64,
@@ -18,7 +21,11 @@ impl UnconnectedPong {
             motd,
         }
     }
-    pub fn read(payload: &[u8]) -> Result<Self> {
+}
+
+impl Packet for UnconnectedPong {
+    const ID: u8 = 0x1c;
+    fn read(payload: &[u8]) -> Result<Self> {
         let mut cursor = Reader::new(payload);
         Ok(Self {
             time: cursor.read_u64(Endian::Big)?,
@@ -27,7 +34,7 @@ impl UnconnectedPong {
             motd: cursor.read_string().to_owned(),
         })
     }
-    pub fn write(&self) -> Result<Vec<u8>> {
+    fn write(&self) -> Result<Vec<u8>> {
         let mut cursor = Writer::new(vec![]);
         cursor.write_u64(self.time, Endian::Big)?;
         cursor.write_u64(self.guid, Endian::Big)?;

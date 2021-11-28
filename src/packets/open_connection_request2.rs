@@ -1,7 +1,8 @@
+use crate::packets::Packet;
 use crate::reader::{Endian, Reader};
 use crate::writer::Writer;
 use std::{io::Result, net::SocketAddr};
-
+#[derive(Clone)]
 pub struct OpenConnectionRequest2 {
     _magic: bool,
     pub address: SocketAddr,
@@ -9,8 +10,9 @@ pub struct OpenConnectionRequest2 {
     pub guid: u64,
 }
 
-impl OpenConnectionRequest2 {
-    pub fn read(payload: &[u8]) -> Result<Self> {
+impl Packet for OpenConnectionRequest2 {
+    const ID: u8 = 0x7;
+    fn read(payload: &[u8]) -> Result<Self> {
         let mut cursor = Reader::new(payload);
         Ok(Self {
             _magic: cursor.read_magic()?,
@@ -20,7 +22,7 @@ impl OpenConnectionRequest2 {
         })
     }
 
-    pub fn write(&self) -> Result<Vec<u8>> {
+    fn write(&self) -> Result<Vec<u8>> {
         let mut cursor = Writer::new(vec![]);
         cursor.write_magic()?;
         cursor.write_address(self.address)?;

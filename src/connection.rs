@@ -1,9 +1,11 @@
 use crate::{
     packet::ACKQueue,
     packets::{
-        ack::ACK, connected_pong::ConnectedPong,
-        connection_request_accepted::ConnectionRequestAccepted, frame::Frame, frame_set::FrameSet,
-        Packets, Reliability,
+        ack::ACK, connected_ping::ConnectedPing, connected_pong::ConnectedPong,
+        connection_request::ConnectionRequest,
+        connection_request_accepted::ConnectionRequestAccepted, decode, disconnected::Disconnected,
+        encode, frame::Frame, frame_set::FrameSet, new_incoming_connection::NewIncomingConnection,
+        Packet, Reliability,
     },
     raknet::RaknetEvent,
 };
@@ -90,33 +92,35 @@ impl Connection {
         let frame_set = FrameSet::decode(buff).expect("failed to read packet");
         self.ack_queue.add(frame_set.sequence_number);
         for frame in frame_set.datas {
-            let packet = Packets::decode(&frame.data).expect("failed to read packet");
-            match packet {
-                Packets::ConnectionRequest(p) => {
+            match frame.data[0] {
+                ConnectionRequest::ID => {
+                    let p = decode::<ConnectionRequest>(&frame.data).unwrap();
                     let reply = ConnectionRequestAccepted::new(
                         self.address,
                         p.time,
                         self.timer.elapsed().as_millis().try_into().unwrap(),
                     );
-                    let buff = Packets::ConnectionRequestAccepted(reply).encode().unwrap();
+                    let buff = encode::<ConnectionRequestAccepted>(reply).unwrap();
                     let frame = Frame::new(Reliability::ReliableOrdered, &buff);
                     self.send(frame);
                 }
-                Packets::NewIncomingConnection(p) => {
+                NewIncomingConnection::ID => {
+                    let p = decode::<NewIncomingConnection>(&frame.data).unwrap();
                     println!("{}", p.server_address);
                 }
-                Packets::ConnectedPing(p) => {
+                ConnectedPing::ID => {
+                    let p = decode::<ConnectedPing>(&frame.data).unwrap();
                     let pong = ConnectedPong::new(
                         p.client_timestamp,
                         self.timer.elapsed().as_millis().try_into().unwrap(),
                     );
-                    let buff = Packets::ConnectedPong(pong).encode().unwrap();
+                    let buff = encode::<ConnectedPong>(pong).unwrap();
                     let mut frame = Frame::new(Reliability::ReliableOrdered, &buff);
                     frame.message_index = self.sequence_number;
                     frame.order_index = self.sequence_number;
                     self.send(frame);
                 }
-                Packets::Disconnect(_) => {
+                Disconnected::ID => {
                     self.disconnect();
                 }
                 _ => {}
