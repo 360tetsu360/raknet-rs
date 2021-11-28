@@ -8,6 +8,12 @@ pub struct ConnectedPong {
 }
 
 impl ConnectedPong {
+    pub fn new(client_timestamp: u64, server_timestamp: u64) -> Self {
+        Self {
+            client_timestamp,
+            server_timestamp,
+        }
+    }
     pub fn read(payload: &[u8]) -> Result<Self> {
         let mut cursor = Reader::new(payload);
         Ok(Self {

@@ -1,8 +1,9 @@
 use crate::{
     packet::ACKQueue,
     packets::{
-        ack::ACK, connection_request_accepted::ConnectionRequestAccepted, frame::Frame,
-        frame_set::FrameSet, Packets, Reliability,
+        ack::ACK, connected_pong::ConnectedPong,
+        connection_request_accepted::ConnectionRequestAccepted, frame::Frame, frame_set::FrameSet,
+        Packets, Reliability,
     },
     raknet::RaknetEvent,
 };
@@ -104,6 +105,17 @@ impl Connection {
                 Packets::NewIncomingConnection(p) => {
                     println!("{}", p.server_address);
                 }
+                Packets::ConnectedPing(p) => {
+                    let pong = ConnectedPong::new(
+                        p.client_timestamp,
+                        self.timer.elapsed().as_millis().try_into().unwrap(),
+                    );
+                    let buff = Packets::ConnectedPong(pong).encode().unwrap();
+                    let mut frame = Frame::new(Reliability::ReliableOrdered, &buff);
+                    frame.message_index = self.sequence_number;
+                    frame.order_index = self.sequence_number;
+                    self.send(frame);
+                }
                 Packets::Disconnect(_) => {
                     self.disconnect();
                 }
@@ -123,14 +135,14 @@ impl Connection {
             frame_set.insert(0, 0x80);
             let socket = self.socket.clone();
             let address = self.address;
+            self.send_queue.clear();
+            self.sequence_number += 1;
             tokio::spawn(async move {
                 socket
                     .send_to(&frame_set, address)
                     .await
                     .expect("failed to send packet");
             });
-            self.send_queue.clear();
-            self.sequence_number += 1;
         }
     }
     pub fn disconnect(&mut self) {
