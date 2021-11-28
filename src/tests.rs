@@ -1,12 +1,14 @@
 use crate::packet::ACKQueue;
 use crate::raknet::{RaknetEvent, Server};
+use std::fs::File;
+use std::io::prelude::*;
 use std::net::SocketAddr;
 #[tokio::test]
 async fn it_works() {
     let remote_addr: SocketAddr = "127.0.0.1:19132".parse().expect("could not parse addr");
     let server = Server::new(
             remote_addr,
-        "MCPE;Dedicated Server;390;1.17.42;0;10;13253860892328930865;Bedrock level;Survival;1;19132;19133;".to_owned()
+        "MCPE;§5raknet rs;390;1.17.42;0;10;13253860892328930865;Bedrock level;Survival;1;19132;19133;".to_owned()
         ).await;
     server.listen().await;
     for _ in 0..0 {
@@ -19,6 +21,8 @@ async fn it_works() {
                 }
                 RaknetEvent::Disconnected(addr, guid) => {
                     println!("disconnected {} {}", addr, &guid)
+                }
+                RaknetEvent::Packet(_packet) => {
                 }
                 _ => {}
             }

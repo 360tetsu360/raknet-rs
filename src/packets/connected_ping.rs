@@ -9,7 +9,7 @@ pub struct ConnectedPing {
 }
 
 impl Packet for ConnectedPing {
-    const ID: u8 = 0x3;
+    const ID: u8 = 0x0;
     fn read(payload: &[u8]) -> Result<Self> {
         let mut cursor = Reader::new(payload);
         Ok(Self {

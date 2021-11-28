@@ -1,5 +1,5 @@
 use crate::{
-    packet::ACKQueue,
+    packet::{ACKQueue, RaknetPacket, SplitPacketQueue},
     packets::{
         ack::ACK, connected_ping::ConnectedPing, connected_pong::ConnectedPong,
         connection_request::ConnectionRequest,
@@ -8,6 +8,7 @@ use crate::{
         Packet, Reliability,
     },
     raknet::RaknetEvent,
+    writer::Writer,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc, time::Instant};
 use tokio::net::UdpSocket;
@@ -28,6 +29,7 @@ pub struct Connection {
     ack_queue: ACKQueue,
     send_queue: Vec<Frame>,
     sequence_number: u32,
+    split_queue: SplitPacketQueue,
 }
 
 impl Connection {
@@ -42,12 +44,14 @@ impl Connection {
             ack_queue: ACKQueue::new(),
             send_queue: vec![],
             sequence_number: 0,
+            split_queue: SplitPacketQueue::new(),
         }
     }
     pub fn update(&mut self) {
         self.event_queue.clear();
         self.flush_queue();
         self.flush_ack();
+        self.check_splits();
         let time = self.timer.elapsed().as_millis();
         if (time - self.last_recieve) > 10000 {
             self.disconnect();
@@ -92,42 +96,47 @@ impl Connection {
         let frame_set = FrameSet::decode(buff).expect("failed to read packet");
         self.ack_queue.add(frame_set.sequence_number);
         for frame in frame_set.datas {
-            match frame.data[0] {
-                ConnectionRequest::ID => {
-                    let p = decode::<ConnectionRequest>(&frame.data).unwrap();
-                    let reply = ConnectionRequestAccepted::new(
-                        self.address,
-                        p.time,
-                        self.timer.elapsed().as_millis().try_into().unwrap(),
-                    );
-                    let buff = encode::<ConnectionRequestAccepted>(reply).unwrap();
-                    let frame = Frame::new(Reliability::ReliableOrdered, &buff);
-                    self.send(frame);
-                }
-                NewIncomingConnection::ID => {
-                    let p = decode::<NewIncomingConnection>(&frame.data).unwrap();
-                    println!("{}", p.server_address);
-                }
-                ConnectedPing::ID => {
-                    let p = decode::<ConnectedPing>(&frame.data).unwrap();
-                    let pong = ConnectedPong::new(
-                        p.client_timestamp,
-                        self.timer.elapsed().as_millis().try_into().unwrap(),
-                    );
-                    let buff = encode::<ConnectedPong>(pong).unwrap();
-                    let mut frame = Frame::new(Reliability::ReliableOrdered, &buff);
-                    frame.message_index = self.sequence_number;
-                    frame.order_index = self.sequence_number;
-                    self.send(frame);
-                }
-                Disconnected::ID => {
-                    self.disconnect();
-                }
-                _ => {}
+            if !frame.split {
+                self.handle_packet(&frame.data);
+            } else {
+                self.handle_split(&frame);
             }
         }
     }
 
+    fn handle_packet(&mut self, payload: &[u8]) {
+        match payload[0] {
+            ConnectionRequest::ID => {
+                self.handle_connectionrequest(payload);
+            }
+            NewIncomingConnection::ID => {
+                let p = decode::<NewIncomingConnection>(payload).unwrap();
+                println!("{}", p.server_address);
+            }
+            ConnectedPing::ID => {
+                self.handle_connectedping(payload);
+            }
+            Disconnected::ID => {
+                self.disconnect();
+            }
+            _ => {
+                let rak_packet = RaknetPacket::new(self.address, self.guid, payload.to_vec());
+                self.event_queue.push(RaknetEvent::Packet(rak_packet));
+            }
+        }
+    }
+
+    fn handle_split(&mut self, frame: &Frame) {
+        self.split_queue.add(frame);
+    }
+    fn check_splits(&mut self) {
+        let done = self.split_queue.get_and_clear();
+        for packet in done {
+            let mut dist = Writer::new(vec![]);
+            packet.get_all(&mut dist).unwrap();
+            self.handle_packet(&dist.get_raw_payload());
+        }
+    }
     fn send(&mut self, packet: Frame) {
         self.send_queue.push(packet);
     }
@@ -149,6 +158,31 @@ impl Connection {
             });
         }
     }
+    fn handle_connectionrequest(&mut self, payload: &[u8]) {
+        let p = decode::<ConnectionRequest>(payload).unwrap();
+        let reply = ConnectionRequestAccepted::new(
+            self.address,
+            p.time,
+            self.timer.elapsed().as_millis().try_into().unwrap(),
+        );
+        let buff = encode::<ConnectionRequestAccepted>(reply).unwrap();
+        let frame = Frame::new(Reliability::ReliableOrdered, &buff);
+        self.send(frame);
+    }
+
+    fn handle_connectedping(&mut self, payload: &[u8]) {
+        let p = decode::<ConnectedPing>(payload).unwrap();
+        let pong = ConnectedPong::new(
+            p.client_timestamp,
+            self.timer.elapsed().as_millis().try_into().unwrap(),
+        );
+        let buff = encode::<ConnectedPong>(pong).unwrap();
+        let mut frame = Frame::new(Reliability::ReliableOrdered, &buff);
+        frame.message_index = self.sequence_number;
+        frame.order_index = self.sequence_number;
+        self.send(frame);
+    }
+
     pub fn disconnect(&mut self) {
         self.event_queue
             .push(RaknetEvent::Disconnected(self.address, self.guid));

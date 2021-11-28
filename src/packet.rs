@@ -1,4 +1,6 @@
-use std::net::SocketAddr;
+use std::{collections::HashMap, io::Result, net::SocketAddr};
+
+use crate::{packets::frame::Frame, writer::Writer};
 pub struct ACKQueue {
     pub packets: Vec<(u32, u32)>, //min max
     pub missing: Vec<u32>,
@@ -62,9 +64,101 @@ impl ACKQueue {
 }
 
 #[derive(Clone)]
+pub struct SplitPacket {
+    pub split_size: u32,
+    pub data: HashMap<u32, Vec<u8>>,
+    pub message_index: u32,
+    pub order_index: u32,
+    full: bool,
+}
+impl SplitPacket {
+    pub fn new(split_size: u32, message_index: u32, order_index: u32) -> Self {
+        Self {
+            split_size,
+            data: HashMap::new(),
+            message_index,
+            order_index,
+            full: false,
+        }
+    }
+    pub fn add(&mut self, index: u32, payload: &[u8]) {
+        if index < self.split_size {
+            self.data.insert(index, payload.to_vec());
+            if self.data.len() as u32 == self.split_size {
+                self.full = true;
+            }
+        }
+    }
+    pub fn is_full(&self) -> bool {
+        self.full
+    }
+    pub fn get_all(&self, cursor: &mut Writer) -> Result<()> {
+        for index in 0..self.split_size {
+            cursor.write(self.data.get(&index).unwrap())?;
+        }
+        Ok(())
+    }
+}
+
+pub struct SplitPacketQueue {
+    pub pool: HashMap<u16, SplitPacket>,
+    delete: Vec<u16>,
+}
+impl Default for SplitPacketQueue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl SplitPacketQueue {
+    pub fn new() -> Self {
+        Self {
+            pool: HashMap::new(),
+            delete: vec![],
+        }
+    }
+    pub fn add(&mut self, frame: &Frame) {
+        if let std::collections::hash_map::Entry::Vacant(e) = self.pool.entry(frame.split_id) {
+            e.insert(SplitPacket::new(
+                frame.split_count,
+                frame.message_index,
+                frame.sequence_index,
+            ));
+        }
+        self.pool
+            .get_mut(&frame.split_id)
+            .unwrap()
+            .add(frame.split_index, &frame.data);
+    }
+    pub fn get_and_clear(&mut self) -> Vec<SplitPacket> {
+        let mut ret = vec![];
+        for water in self.pool.iter() {
+            if water.1.is_full() {
+                self.delete.push(*water.0);
+                ret.push(water.1.clone());
+            }
+        }
+        for delete in self.delete.iter() {
+            self.pool.remove(delete);
+        }
+        ret
+    }
+}
+
+#[derive(Clone)]
 pub struct RaknetPacket {
     pub address: SocketAddr,
     pub guid: u64,
     pub length: usize,
     pub data: Vec<u8>,
+}
+
+impl RaknetPacket {
+    pub fn new(address: SocketAddr, guid: u64, data: Vec<u8>) -> Self {
+        Self {
+            address,
+            guid,
+            length: data.len(),
+            data,
+        }
+    }
 }
