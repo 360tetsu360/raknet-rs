@@ -11,8 +11,18 @@ pub mod open_connection_request2;
 pub mod unconnected_ping;
 pub mod unconnected_pong;
 
-use std::io::{ErrorKind, Result};
-pub trait Packet {
+use std::io::Result;
+
+pub(crate) trait Packet: Clone {
     const ID: u8;
-    
+    fn read(buf: &[u8]) -> Result<Self> where Self: Sized;
+    fn write(&self) -> Result<Vec<u8>>;
+}
+
+pub(crate) fn encode<T: Packet>(packet: T) -> Result<Vec<u8>> {
+    Ok([&[T::ID], &*packet.write().unwrap()].concat())
+}
+
+pub(crate) fn decode<T: Packet>(buf: &mut [u8]) -> Result<T>{
+    T::read(&buf[1..])
 }

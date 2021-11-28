@@ -1,5 +1,6 @@
 use crate::reader::{Endian, Reader};
 use crate::writer::Writer;
+use crate::packets::Packet;
 use std::{convert::TryInto, io::Result, net::SocketAddr};
 pub struct NewIncomingConnection {
     server_address: SocketAddr,
@@ -8,8 +9,9 @@ pub struct NewIncomingConnection {
     accepted_timestamp: u64,
 }
 
-impl NewIncomingConnection {
-    pub fn read(payload: &[u8]) -> Result<Self> {
+impl Packet for NewIncomingConnection {
+    const ID:u8 = 0x13;
+    fn read(payload: &[u8]) -> Result<Self> {
         let mut cursor = Reader::new(payload);
         Ok(Self {
             server_address: cursor.read_address()?,
@@ -24,7 +26,7 @@ impl NewIncomingConnection {
             accepted_timestamp: cursor.read_u64(Endian::Big)?,
         })
     }
-    pub fn write(&self) -> Result<Vec<u8>> {
+    fn write(&self) -> Result<Vec<u8>> {
         let mut cursor = Writer::new(vec![]);
         cursor.write_address(self.server_address)?;
         for address in self.system_address {
