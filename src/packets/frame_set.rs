@@ -21,8 +21,7 @@ impl FrameSet {
     pub fn decode(payload: &[u8]) -> Result<Self> {
         let size = payload.len();
         let mut cursor = Reader::new(payload);
-        let sequence_number = cursor.read_u24le(Endian::Big)?;
-        println!("{}", sequence_number);
+        let sequence_number = cursor.read_u24le(Endian::Little)?;
         let mut frame_set = Self {
             sequence_number,
             datas: vec![],

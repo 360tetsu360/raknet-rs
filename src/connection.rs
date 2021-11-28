@@ -1,7 +1,8 @@
 use crate::{
+    packet::ACKQueue,
     packets::{
-        connection_request_accepted::ConnectionRequestAccepted, frame::Frame, frame_set::FrameSet,
-        Packets, Reliability,
+        ack::ACK, connection_request_accepted::ConnectionRequestAccepted, frame::Frame,
+        frame_set::FrameSet, Packets, Reliability,
     },
     raknet::RaknetEvent,
 };
@@ -21,7 +22,7 @@ pub struct Connection {
     pub guid: u64,
     timer: Instant,
     last_recieve: u128,
-    received_packet: Vec<u32>,
+    ack_queue: ACKQueue,
     send_queue: Vec<Frame>,
     sequence_number: u32,
 }
@@ -35,15 +36,15 @@ impl Connection {
             guid,
             timer,
             last_recieve: timer.elapsed().as_millis(),
-            received_packet: vec![],
+            ack_queue: ACKQueue::new(),
             send_queue: vec![],
             sequence_number: 0,
         }
     }
     pub fn update(&mut self) {
         self.event_queue.clear();
-        self.ack_receipt();
         self.flush_queue();
+        self.flush_ack();
         let time = self.timer.elapsed().as_millis();
         if (time - self.last_recieve) > 10000 {
             self.disconnect();
@@ -62,19 +63,31 @@ impl Connection {
             self.handle_datagram(&buff[1..]);
         }
     }
-    fn ack_receipt(&mut self) {
-        if !self.received_packet.is_empty() {
-            self.send_ack(self.received_packet.clone().as_slice());
+    fn flush_ack(&mut self) {
+        let acks = self.ack_queue.get_send_able_and_clear();
+        for ack in acks {
+            self.send_ack(ack);
         }
     }
-    fn send_ack(&mut self, _packets: &[u32]) {}
+    fn send_ack(&mut self, packet: (u32, u32)) {
+        let ack = ACK::new(packet);
+        let buf = ack.encode().expect("failed to encode ACK");
+        let socket = self.socket.clone();
+        let address = self.address;
+        tokio::spawn(async move {
+            socket
+                .send_to(&buf, address)
+                .await
+                .expect("failed to send ACK");
+        });
+    }
     fn handle_ack(&self, _buff: &[u8]) {}
 
     fn handle_nack(&self, _buff: &[u8]) {}
 
     fn handle_datagram(&mut self, buff: &[u8]) {
         let frame_set = FrameSet::decode(buff).expect("failed to read packet");
-        self.received_packet.push(frame_set.sequence_number);
+        self.ack_queue.add(frame_set.sequence_number);
         for frame in frame_set.datas {
             let packet = Packets::decode(&frame.data).expect("failed to read packet");
             match packet {
