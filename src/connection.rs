@@ -1,14 +1,15 @@
 use crate::{
     packet::{ACKQueue, RaknetPacket, SplitPacketQueue},
+    packetqueue::PacketQueue,
     packets::{
-        ack::ACK, connected_ping::ConnectedPing, connected_pong::ConnectedPong,
+        ack::Ack, connected_ping::ConnectedPing, connected_pong::ConnectedPong,
         connection_request::ConnectionRequest,
         connection_request_accepted::ConnectionRequestAccepted, decode, disconnected::Disconnected,
-        encode, frame::Frame, frame_set::FrameSet, new_incoming_connection::NewIncomingConnection,
-        Packet, Reliability,
+        encode, frame::Frame, frame_set::FrameSet, nack::Nack,
+        new_incoming_connection::NewIncomingConnection, Packet, Reliability,
     },
     raknet::RaknetEvent,
-    writer::Writer,
+    recievedqueue::RecievdQueue,
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc, time::Instant};
 use tokio::net::UdpSocket;
@@ -24,34 +25,45 @@ pub struct Connection {
     socket: Arc<UdpSocket>,
     pub event_queue: Vec<RaknetEvent>,
     pub guid: u64,
+    mtu: u16,
     timer: Instant,
     last_recieve: u128,
     ack_queue: ACKQueue,
-    send_queue: Vec<Frame>,
-    sequence_number: u32,
     split_queue: SplitPacketQueue,
+    packet_queue: PacketQueue,
+    message_index: u32,
+    order_index: u32,
+    recieved: RecievdQueue,
 }
 
 impl Connection {
-    pub fn new(address: SocketAddr, socket: Arc<UdpSocket>, guid: u64, timer: Instant) -> Self {
+    pub fn new(
+        address: SocketAddr,
+        socket: Arc<UdpSocket>,
+        guid: u64,
+        timer: Instant,
+        mtu: u16,
+    ) -> Self {
         Self {
             address,
             socket,
             event_queue: vec![RaknetEvent::Connected(address, guid)],
             guid,
+            mtu,
             timer,
             last_recieve: timer.elapsed().as_millis(),
             ack_queue: ACKQueue::new(),
-            send_queue: vec![],
-            sequence_number: 0,
             split_queue: SplitPacketQueue::new(),
+            packet_queue: PacketQueue::new(mtu),
+            message_index: 0,
+            order_index: 0,
+            recieved: RecievdQueue::new(),
         }
     }
     pub fn update(&mut self) {
         self.event_queue.clear();
         self.flush_queue();
         self.flush_ack();
-        self.check_splits();
         let time = self.timer.elapsed().as_millis();
         if (time - self.last_recieve) > 10000 {
             self.disconnect();
@@ -63,7 +75,7 @@ impl Connection {
         self.last_recieve = self.timer.elapsed().as_millis();
 
         if header & ACK_FLAG != 0 {
-            self.handle_ack(&buff[1..]);
+            self.handle_ack(buff);
         } else if header & NACK_FLAG != 0 {
             self.handle_nack(&buff[1..]);
         } else if header & DATAGRAM_FLAG != 0 {
@@ -77,8 +89,8 @@ impl Connection {
         }
     }
     fn send_ack(&mut self, packet: (u32, u32)) {
-        let ack = ACK::new(packet);
-        let buf = ack.encode().expect("failed to encode ACK");
+        let ack = Ack::new(packet);
+        let buf = encode::<Ack>(ack).expect("failed to encode ACK");
         let socket = self.socket.clone();
         let address = self.address;
         tokio::spawn(async move {
@@ -88,18 +100,38 @@ impl Connection {
                 .expect("failed to send ACK");
         });
     }
-    fn handle_ack(&self, _buff: &[u8]) {}
+    fn handle_ack(&mut self, buff: &[u8]) {
+        let ack = decode::<Ack>(buff).unwrap();
+        for sequence in ack.get_all() {
+            self.packet_queue.recieved(sequence);
+        }
+    }
 
-    fn handle_nack(&self, _buff: &[u8]) {}
+    fn handle_nack(&mut self, buff: &[u8]) {
+        let nack = decode::<Nack>(buff).unwrap();
+        for sequence in nack.get_all() {
+            self.packet_queue.resend(sequence);
+        }
+    }
 
     fn handle_datagram(&mut self, buff: &[u8]) {
         let frame_set = FrameSet::decode(buff).expect("failed to read packet");
         self.ack_queue.add(frame_set.sequence_number);
         for frame in frame_set.datas {
             if !frame.split {
-                self.handle_packet(&frame.data);
+                self.recieve_packet(frame);
             } else {
                 self.handle_split(&frame);
+            }
+        }
+    }
+    fn recieve_packet(&mut self, frame: Frame) {
+        if !frame.reliability.sequenced_or_ordered() {
+            self.handle_packet(&frame.data);
+        } else {
+            self.recieved.add(frame);
+            for packet in self.recieved.get_all() {
+                self.handle_packet(&packet);
             }
         }
     }
@@ -128,28 +160,45 @@ impl Connection {
 
     fn handle_split(&mut self, frame: &Frame) {
         self.split_queue.add(frame);
-    }
-    fn check_splits(&mut self) {
         let done = self.split_queue.get_and_clear();
         for packet in done {
-            let mut dist = Writer::new(vec![]);
-            packet.get_all(&mut dist).unwrap();
-            self.handle_packet(&dist.get_raw_payload());
+            self.recieve_packet(packet.get_frame().unwrap());
+        }
+    }
+    pub fn send_to(&mut self, buff: &[u8]) {
+        if buff.len() < (self.mtu - 42).into() {
+            let mut frame = Frame::new(Reliability::ReliableOrdered, buff);
+            frame.message_index = self.message_index;
+            frame.order_index = self.order_index;
+            self.message_index += 1;
+            self.order_index += 1;
+            self.send(frame);
+        } else {
+            let max = self.mtu - 52;
+            let mut split_len = buff.len() as u16 / max;
+            if buff.len() as u16 % max != 0 {
+                split_len += 1;
+            }
+            for i in 0..split_len {
+                let range = (i * max) as usize..((i + 1) * max) as usize;
+                let mut frame = Frame::new(Reliability::ReliableOrdered, &buff[range]);
+                frame.split = true;
+                frame.message_index = self.message_index;
+                frame.order_index = self.order_index;
+                self.order_index += 1;
+            }
+            self.message_index += 1;
         }
     }
     fn send(&mut self, packet: Frame) {
-        self.send_queue.push(packet);
+        self.packet_queue.add_frame(packet);
     }
     fn flush_queue(&mut self) {
-        if !self.send_queue.is_empty() {
-            let mut frame_set = FrameSet::new(self.sequence_number, &self.send_queue)
-                .encode()
-                .expect("error while encoding packet");
-            frame_set.insert(0, 0x80);
+        for send_able in self.packet_queue.get_packet() {
+            let mut frame_set = send_able.encode().expect("failed to encode frame_set");
+            frame_set.insert(0, DATAGRAM_FLAG);
             let socket = self.socket.clone();
             let address = self.address;
-            self.send_queue.clear();
-            self.sequence_number += 1;
             tokio::spawn(async move {
                 socket
                     .send_to(&frame_set, address)
@@ -178,8 +227,10 @@ impl Connection {
         );
         let buff = encode::<ConnectedPong>(pong).unwrap();
         let mut frame = Frame::new(Reliability::ReliableOrdered, &buff);
-        frame.message_index = self.sequence_number;
-        frame.order_index = self.sequence_number;
+        frame.message_index = self.message_index;
+        frame.order_index = self.order_index;
+        self.message_index += 1;
+        self.order_index += 1;
         self.send(frame);
     }
 

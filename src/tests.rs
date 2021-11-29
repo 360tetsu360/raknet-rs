@@ -1,7 +1,5 @@
 use crate::packet::ACKQueue;
 use crate::raknet::{RaknetEvent, Server};
-use std::fs::File;
-use std::io::prelude::*;
 use std::net::SocketAddr;
 #[tokio::test]
 async fn it_works() {
@@ -10,7 +8,7 @@ async fn it_works() {
             remote_addr,
         "MCPE;§5raknet rs;390;1.17.42;0;10;13253860892328930865;Bedrock level;Survival;1;19132;19133;".to_owned()
         ).await;
-    server.listen().await;
+    server.listen();
     for _ in 0..0 {
         tokio::time::sleep(std::time::Duration::from_millis(1)).await;
         let events = server.recv().await.unwrap();
@@ -22,8 +20,7 @@ async fn it_works() {
                 RaknetEvent::Disconnected(addr, guid) => {
                     println!("disconnected {} {}", addr, &guid)
                 }
-                RaknetEvent::Packet(_packet) => {
-                }
+                RaknetEvent::Packet(_packet) => {}
                 _ => {}
             }
         }

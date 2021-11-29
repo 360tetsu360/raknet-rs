@@ -1,6 +1,6 @@
 use crate::packets::{
     connection_request::ConnectionRequest, connection_request_accepted::ConnectionRequestAccepted,
-    decode, encode, new_incoming_connection::NewIncomingConnection,
+    decode, encode, nack::Nack, new_incoming_connection::NewIncomingConnection,
     open_connection_reply1::OpenConnectionReply1, open_connection_reply2::OpenConnectionReply2,
     open_connection_request1::OpenConnectionRequest1,
     open_connection_request2::OpenConnectionRequest2, unconnected_ping::UnconnectedPing,
@@ -198,6 +198,9 @@ const NEW_INCOMING_CONNECTION_DATA: [u8; 198] = [
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0f, 0x8d, 0xcc, 0x27, 0x00, 0x00, 0x48, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x0f, 0x8d, 0xcc, 0x27,
 ];
+
+const NACK_DATA: [u8; 7] = [0xa0, 0x00, 0x01, 0x01, 0x0d, 0x00, 0x00];
+
 #[test]
 fn raknet_packet() {
     let unconnected_ping = decode::<UnconnectedPing>(&UNCONNECTED_PING_DATA).unwrap();
@@ -255,4 +258,8 @@ fn raknet_packet() {
     let new_incoming_connection =
         decode::<NewIncomingConnection>(&NEW_INCOMING_CONNECTION_DATA).unwrap();
     encode::<NewIncomingConnection>(new_incoming_connection).unwrap();
+
+    let nack = decode::<Nack>(&NACK_DATA).unwrap();
+    let nack_encoded = encode::<Nack>(nack).unwrap();
+    debug_assert_eq!(&nack_encoded, &NACK_DATA);
 }

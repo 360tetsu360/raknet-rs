@@ -7,6 +7,7 @@ pub mod disconnected;
 pub mod frame;
 pub mod frame_set;
 pub mod incompatible_protocol_version;
+pub mod nack;
 pub mod new_incoming_connection;
 pub mod open_connection_reply1;
 pub mod open_connection_reply2;
@@ -14,7 +15,6 @@ pub mod open_connection_request1;
 pub mod open_connection_request2;
 pub mod unconnected_ping;
 pub mod unconnected_pong;
-
 use std::io::{Error, ErrorKind};
 #[derive(Clone)]
 pub enum Reliability {

@@ -1,8 +1,10 @@
 pub mod connection;
 pub mod packet;
-pub mod packets;
+mod packetqueue;
+mod packets;
 pub mod raknet;
 pub mod reader;
+mod recievedqueue;
 pub mod writer;
 
 #[cfg(test)]

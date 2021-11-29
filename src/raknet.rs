@@ -47,7 +47,7 @@ pub struct Server {
     pub socket: Arc<UdpSocket>,
     pub connection: Arc<Mutex<HashMap<SocketAddr, Connection>>>,
     pub id: u64,
-    pub title: Arc<String>,
+    pub title: Arc<Mutex<String>>,
     time: Instant,
 }
 
@@ -57,12 +57,12 @@ impl Server {
             socket: Arc::new(UdpSocket::bind(address).await.unwrap()),
             connection: Arc::new(Mutex::new(HashMap::new())),
             id: random::<u64>(),
-            title: Arc::new(title),
+            title: Arc::new(Mutex::new(title)),
             time: Instant::now(),
         }
     }
 
-    pub async fn listen(&self) {
+    pub fn listen(&self) {
         let socket2 = self.socket.clone();
         let connections2 = self.connection.clone();
         let id = self.id;
@@ -78,7 +78,7 @@ impl Server {
                     match buff[0] {
                         UnconnectedPing::ID => {
                             let p = decode::<UnconnectedPing>(buff).unwrap();
-                            let pong = UnconnectedPong::new(p.time, id, motd.to_string());
+                            let pong = UnconnectedPong::new(p.time, id, motd.lock().await.to_string());
                             if let Ok(data) = encode::<UnconnectedPong>(pong) {
                                 let _ = socket2.send_to(&data, source).await.unwrap();
                             };
@@ -97,7 +97,7 @@ impl Server {
                                 let _ = socket2.send_to(&data, source).await.unwrap();
                                 connections2.lock().await.insert(
                                     source,
-                                    Connection::new(source, socket2.clone(), id, time),
+                                    Connection::new(source, socket2.clone(), id, time, p.mtu),
                                 );
                             };
                             //connected!
@@ -133,6 +133,12 @@ impl Server {
         }
         disconnected_clients.clear();
         Ok(events)
+    }
+
+    pub async fn set_motd(&mut self,motd : String) -> Result<()> {
+        let mut old = self.title.lock().await;
+        *old = motd;
+        Ok(())
     }
 }
 

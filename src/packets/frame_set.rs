@@ -6,18 +6,19 @@ use crate::{
     writer::Writer,
 };
 
+#[derive(Clone)]
 pub struct FrameSet {
     pub sequence_number: u32,
     pub datas: Vec<Frame>,
 }
 
 impl FrameSet {
-    pub fn new(sequence_number: u32, datas: &[Frame]) -> Self {
+    /*pub fn new(sequence_number: u32, datas: &[Frame]) -> Self {
         Self {
             sequence_number,
             datas: datas.to_vec(),
         }
-    }
+    }*/
     pub fn decode(payload: &[u8]) -> Result<Self> {
         let size = payload.len();
         let mut cursor = Reader::new(payload);

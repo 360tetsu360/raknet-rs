@@ -1,6 +1,9 @@
 use std::{collections::HashMap, io::Result, net::SocketAddr};
 
-use crate::{packets::frame::Frame, writer::Writer};
+use crate::{
+    packets::{frame::Frame, Reliability},
+    writer::Writer,
+};
 pub struct ACKQueue {
     pub packets: Vec<(u32, u32)>, //min max
     pub missing: Vec<u32>,
@@ -67,15 +70,22 @@ impl ACKQueue {
 pub struct SplitPacket {
     pub split_size: u32,
     pub data: HashMap<u32, Vec<u8>>,
+    pub reliability: Reliability,
     pub message_index: u32,
     pub order_index: u32,
     full: bool,
 }
 impl SplitPacket {
-    pub fn new(split_size: u32, message_index: u32, order_index: u32) -> Self {
+    pub fn new(
+        split_size: u32,
+        message_index: u32,
+        order_index: u32,
+        reliability: Reliability,
+    ) -> Self {
         Self {
             split_size,
             data: HashMap::new(),
+            reliability,
             message_index,
             order_index,
             full: false,
@@ -97,6 +107,13 @@ impl SplitPacket {
             cursor.write(self.data.get(&index).unwrap())?;
         }
         Ok(())
+    }
+    pub fn get_frame(&self) -> Result<Frame> {
+        let mut cursor = Writer::new(vec![]);
+        self.get_all(&mut cursor)?;
+        let mut frame = Frame::new(self.reliability.clone(), &cursor.get_raw_payload());
+        frame.order_index = self.order_index;
+        Ok(frame)
     }
 }
 
@@ -122,6 +139,7 @@ impl SplitPacketQueue {
                 frame.split_count,
                 frame.message_index,
                 frame.sequence_index,
+                frame.reliability.clone(),
             ));
         }
         self.pool

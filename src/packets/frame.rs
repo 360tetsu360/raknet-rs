@@ -37,6 +37,25 @@ impl Frame {
             data: data.to_vec(),
         }
     }
+    pub fn len(&self) -> usize {
+        let mut ret = 0;
+        ret += 1;
+        ret += 2;
+        if self.reliability.reliable() {
+            ret += 3;
+        }
+        if self.reliability.sequenced() {
+            ret += 3;
+        }
+        if self.reliability.sequenced_or_ordered() {
+            ret += 4;
+        }
+        if self.split {
+            ret += 10;
+        }
+        ret += self.data.len();
+        ret
+    }
     pub fn decode(cursor: &mut Reader) -> Result<Self> {
         let mut packet = Self {
             reliability: Reliability::new(0)?,
