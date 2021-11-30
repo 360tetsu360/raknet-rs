@@ -10,6 +10,16 @@ pub struct UnconnectedPing {
     pub guid: u64,
 }
 
+impl UnconnectedPing {
+    pub fn new(time: u64, guid: u64) -> Self {
+        Self {
+            time,
+            _magic: true,
+            guid,
+        }
+    }
+}
+
 impl Packet for UnconnectedPing {
     const ID: u8 = 0x01;
     fn read(payload: &[u8]) -> Result<Self> {

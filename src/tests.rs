@@ -1,8 +1,8 @@
 use crate::packet::ACKQueue;
-use crate::raknet::{RaknetEvent, Server};
-use std::net::SocketAddr;
+use crate::raknet::{RaknetEvent, Server,Ping};
+use std::net::{SocketAddr,ToSocketAddrs};
 #[tokio::test]
-async fn it_works() {
+async fn server() {
     let remote_addr: SocketAddr = "127.0.0.1:19132".parse().expect("could not parse addr");
     let server = Server::new(
             remote_addr,
@@ -25,6 +25,18 @@ async fn it_works() {
             }
         }
     }
+}
+
+#[tokio::test]
+async fn ping() {
+    let pinger = Ping::new().await;
+    let remote = "mco.mineplex.com:19132"
+        .to_socket_addrs()
+        .unwrap()
+        .next()
+        .unwrap();
+    let pong = pinger.ping(remote).await.unwrap();
+    println!("{}", pong);
 }
 
 #[test]

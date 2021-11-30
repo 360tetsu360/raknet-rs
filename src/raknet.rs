@@ -78,7 +78,8 @@ impl Server {
                     match buff[0] {
                         UnconnectedPing::ID => {
                             let p = decode::<UnconnectedPing>(buff).unwrap();
-                            let pong = UnconnectedPong::new(p.time, id, motd.lock().await.to_string());
+                            let pong =
+                                UnconnectedPong::new(p.time, id, motd.lock().await.to_string());
                             if let Ok(data) = encode::<UnconnectedPong>(pong) {
                                 let _ = socket2.send_to(&data, source).await.unwrap();
                             };
@@ -135,7 +136,7 @@ impl Server {
         Ok(events)
     }
 
-    pub async fn set_motd(&mut self,motd : String) -> Result<()> {
+    pub async fn set_motd(&mut self, motd: String) -> Result<()> {
         let mut old = self.title.lock().await;
         *old = motd;
         Ok(())
@@ -156,5 +157,34 @@ impl Client {
     }
     pub fn address(&self) -> SocketAddr {
         self.socket.local_addr().unwrap()
+    }
+}
+
+pub struct Ping {
+    socket: UdpSocket,
+}
+
+impl Ping {
+    pub async fn new() -> Self {
+        Self {
+            socket: UdpSocket::bind("0.0.0.0:0")
+                .await
+                .expect("Unable to bind to address"),
+        }
+    }
+    pub async fn ping(&self, address: SocketAddr) -> Result<String> {
+        let unconnected_ping = UnconnectedPing::new(0, 0);
+        let payload = encode::<UnconnectedPing>(unconnected_ping)?;
+        let mut ret = String::new();
+        self.socket.send_to(&payload, address).await?;
+        let mut v = [0u8; 1500];
+        let (size, _source) = self.socket.recv_from(&mut v).await.unwrap();
+        let buff = &v[..size];
+        if buff[0] == UnconnectedPong::ID {
+            let pong = decode::<UnconnectedPong>(buff)?;
+            ret = pong.motd.to_owned();
+        }
+
+        Ok(ret)
     }
 }
