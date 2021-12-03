@@ -8,6 +8,7 @@ use crate::{
 
 #[derive(Clone)]
 pub struct FrameSet {
+    pub header: u8,
     pub sequence_number: u32,
     pub datas: Vec<Frame>,
 }
@@ -22,9 +23,9 @@ impl FrameSet {
     pub fn decode(payload: &[u8]) -> Result<Self> {
         let size = payload.len();
         let mut cursor = Reader::new(payload);
-        let sequence_number = cursor.read_u24le(Endian::Little)?;
         let mut frame_set = Self {
-            sequence_number,
+            header: cursor.read_u8()?,
+            sequence_number: cursor.read_u24le(Endian::Little)?,
             datas: vec![],
         };
         while cursor.pos() < size as u64 {
@@ -35,6 +36,7 @@ impl FrameSet {
     }
     pub fn encode(&self) -> Result<Vec<u8>> {
         let mut cursor = Writer::new(vec![]);
+        cursor.write_u8(self.header)?;
         cursor.write_u24le(self.sequence_number, Endian::Little)?;
         for frame in &self.datas {
             frame.encode(&mut cursor)?;

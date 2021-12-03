@@ -2,6 +2,10 @@ use std::collections::HashMap;
 
 use crate::packets::{frame::Frame, frame_set::FrameSet};
 
+const NEEDS_B_AND_AS_FLAG: u8 = 0x4;
+
+const CONTINUOUS_SEND_FLAG: u8 = 0x8;
+
 pub struct PacketQueue {
     pub queue: HashMap<u32, FrameSet>,
     pub time_passed: HashMap<u32, (u16, bool)>,
@@ -31,6 +35,13 @@ impl PacketQueue {
             self.set_queue.push(frame);
         } else {
             let set = FrameSet {
+                header: {
+                    if frame.split {
+                        0x80 | NEEDS_B_AND_AS_FLAG | CONTINUOUS_SEND_FLAG
+                    } else {
+                        0x80 | NEEDS_B_AND_AS_FLAG
+                    }
+                },
                 sequence_number: self.max,
                 datas: vec![frame],
             };
@@ -54,6 +65,7 @@ impl PacketQueue {
     pub fn tick(&mut self) {
         if !self.set_queue.is_empty() {
             let set = FrameSet {
+                header: 0x80 | NEEDS_B_AND_AS_FLAG,
                 sequence_number: self.max,
                 datas: self.set_queue.clone(),
             };

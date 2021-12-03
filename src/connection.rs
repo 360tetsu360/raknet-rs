@@ -1,5 +1,5 @@
 use crate::{
-    packet::{ACKQueue, RaknetPacket, SplitPacketQueue},
+    packet::{ACKQueue, RaknetPacket},
     packetqueue::PacketQueue,
     packets::{
         ack::Ack, connected_ping::ConnectedPing, connected_pong::ConnectedPong,
@@ -13,7 +13,6 @@ use crate::{
 };
 use std::{convert::TryInto, net::SocketAddr, sync::Arc, time::Instant};
 use tokio::net::UdpSocket;
-
 const DATAGRAM_FLAG: u8 = 0x80;
 
 const ACK_FLAG: u8 = 0x40;
@@ -25,15 +24,15 @@ pub struct Connection {
     socket: Arc<UdpSocket>,
     pub event_queue: Vec<RaknetEvent>,
     pub guid: u64,
-    mtu: u16,
-    timer: Instant,
-    last_recieve: u128,
+    pub mtu: u16,
+    pub timer: Instant,
+    pub last_recieve: u128,
     ack_queue: ACKQueue,
-    split_queue: SplitPacketQueue,
     packet_queue: PacketQueue,
     message_index: u32,
     order_index: u32,
     recieved: RecievdQueue,
+    last_ping: u128,
 }
 
 impl Connection {
@@ -47,17 +46,17 @@ impl Connection {
         Self {
             address,
             socket,
-            event_queue: vec![RaknetEvent::Connected(address, guid)],
+            event_queue: vec![],
             guid,
             mtu,
             timer,
             last_recieve: timer.elapsed().as_millis(),
             ack_queue: ACKQueue::new(),
-            split_queue: SplitPacketQueue::new(),
             packet_queue: PacketQueue::new(mtu),
             message_index: 0,
             order_index: 0,
             recieved: RecievdQueue::new(),
+            last_ping: timer.elapsed().as_millis(),
         }
     }
     pub fn update(&mut self) {
@@ -68,18 +67,32 @@ impl Connection {
         if (time - self.last_recieve) > 10000 {
             self.disconnect();
         }
+        if time - self.last_ping > 5 * 1000 {
+            // 1/s
+            self.last_ping = time;
+            self.send_ping();
+        }
+    }
+    pub fn connect(&mut self) {
+        println!("A!!");
+        let request =
+            ConnectionRequest::new(self.guid, self.timer.elapsed().as_millis() as u64, false);
+        let buff = encode::<ConnectionRequest>(request).unwrap();
+        let frame = Frame::new(Reliability::Reliable, &buff);
+        self.send(frame);
     }
     pub fn handle(&mut self, buff: &[u8]) {
         let header = buff[0];
+        
 
         self.last_recieve = self.timer.elapsed().as_millis();
 
         if header & ACK_FLAG != 0 {
             self.handle_ack(buff);
         } else if header & NACK_FLAG != 0 {
-            self.handle_nack(&buff[1..]);
+            self.handle_nack(buff);
         } else if header & DATAGRAM_FLAG != 0 {
-            self.handle_datagram(&buff[1..]);
+            self.handle_datagram(buff);
         }
     }
     fn flush_ack(&mut self) {
@@ -87,6 +100,14 @@ impl Connection {
         for ack in acks {
             self.send_ack(ack);
         }
+    }
+    fn send_ping(&mut self) {
+        let connected_ping = ConnectedPing::new(self.last_ping as u64);
+        let frame = Frame::new(
+            Reliability::Unreliable,
+            &encode::<ConnectedPing>(connected_ping).unwrap(),
+        );
+        self.send(frame);
     }
     fn send_ack(&mut self, packet: (u32, u32)) {
         let ack = Ack::new(packet);
@@ -118,11 +139,7 @@ impl Connection {
         let frame_set = FrameSet::decode(buff).expect("failed to read packet");
         self.ack_queue.add(frame_set.sequence_number);
         for frame in frame_set.datas {
-            if !frame.split {
-                self.recieve_packet(frame);
-            } else {
-                self.handle_split(&frame);
-            }
+            self.recieve_packet(frame);
         }
     }
     fn recieve_packet(&mut self, frame: Frame) {
@@ -131,7 +148,7 @@ impl Connection {
         } else {
             self.recieved.add(frame);
             for packet in self.recieved.get_all() {
-                self.handle_packet(&packet);
+                self.handle_packet(&packet.data);
             }
         }
     }
@@ -141,13 +158,16 @@ impl Connection {
             ConnectionRequest::ID => {
                 self.handle_connectionrequest(payload);
             }
+            ConnectionRequestAccepted::ID => {
+                self.handle_connectionrequest_accepted(payload);
+            },
             NewIncomingConnection::ID => {
-                let p = decode::<NewIncomingConnection>(payload).unwrap();
-                println!("{}", p.server_address);
+                //let p = decode::<NewIncomingConnection>(payload).unwrap();
             }
             ConnectedPing::ID => {
                 self.handle_connectedping(payload);
             }
+            ConnectedPong::ID => {}
             Disconnected::ID => {
                 self.disconnect();
             }
@@ -158,13 +178,6 @@ impl Connection {
         }
     }
 
-    fn handle_split(&mut self, frame: &Frame) {
-        self.split_queue.add(frame);
-        let done = self.split_queue.get_and_clear();
-        for packet in done {
-            self.recieve_packet(packet.get_frame().unwrap());
-        }
-    }
     pub fn send_to(&mut self, buff: &[u8]) {
         if buff.len() < (self.mtu - 42).into() {
             let mut frame = Frame::new(Reliability::ReliableOrdered, buff);
@@ -185,9 +198,9 @@ impl Connection {
                 frame.split = true;
                 frame.message_index = self.message_index;
                 frame.order_index = self.order_index;
-                self.order_index += 1;
+                self.message_index += 1;
             }
-            self.message_index += 1;
+            self.order_index += 1;
         }
     }
     fn send(&mut self, packet: Frame) {
@@ -195,8 +208,7 @@ impl Connection {
     }
     fn flush_queue(&mut self) {
         for send_able in self.packet_queue.get_packet() {
-            let mut frame_set = send_able.encode().expect("failed to encode frame_set");
-            frame_set.insert(0, DATAGRAM_FLAG);
+            let frame_set = send_able.encode().expect("failed to encode frame_set");
             let socket = self.socket.clone();
             let address = self.address;
             tokio::spawn(async move {
@@ -217,8 +229,12 @@ impl Connection {
         let buff = encode::<ConnectionRequestAccepted>(reply).unwrap();
         let frame = Frame::new(Reliability::ReliableOrdered, &buff);
         self.send(frame);
+        self.event_queue
+            .push(RaknetEvent::Connected(self.address, self.guid))
     }
+    fn handle_connectionrequest_accepted(&mut self,_payload: &[u8]) {
 
+    }
     fn handle_connectedping(&mut self, payload: &[u8]) {
         let p = decode::<ConnectedPing>(payload).unwrap();
         let pong = ConnectedPong::new(

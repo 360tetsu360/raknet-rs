@@ -1,6 +1,6 @@
 use crate::packet::ACKQueue;
-use crate::raknet::{RaknetEvent, Server,Ping};
-use std::net::{SocketAddr,ToSocketAddrs};
+use crate::raknet::{Ping, RaknetEvent, Server};
+use std::net::{SocketAddr, ToSocketAddrs};
 #[tokio::test]
 async fn server() {
     let remote_addr: SocketAddr = "127.0.0.1:19132".parse().expect("could not parse addr");

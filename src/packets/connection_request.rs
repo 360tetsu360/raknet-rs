@@ -10,6 +10,16 @@ pub struct ConnectionRequest {
     pub use_encryption: u8,
 }
 
+impl ConnectionRequest {
+    pub fn new(guid: u64, time: u64, use_encryption: bool) -> Self {
+        Self {
+            guid,
+            time,
+            use_encryption: use_encryption as u8,
+        }
+    }
+}
+
 impl Packet for ConnectionRequest {
     const ID: u8 = 0x9;
     fn read(payload: &[u8]) -> Result<Self> {

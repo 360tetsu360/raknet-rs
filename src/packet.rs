@@ -135,12 +135,14 @@ impl SplitPacketQueue {
     }
     pub fn add(&mut self, frame: &Frame) {
         if let std::collections::hash_map::Entry::Vacant(e) = self.pool.entry(frame.split_id) {
-            e.insert(SplitPacket::new(
+            let mut new_split = SplitPacket::new(
                 frame.split_count,
                 frame.message_index,
                 frame.sequence_index,
                 frame.reliability.clone(),
-            ));
+            );
+            new_split.order_index = frame.order_index;
+            e.insert(new_split);
         }
         self.pool
             .get_mut(&frame.split_id)

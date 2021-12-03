@@ -23,6 +23,7 @@ use crate::{
     },
 };
 
+const RAKNET_PROTOCOL_VERSION : u8 = 0xa;
 pub enum RaknetEvent {
     Packet(RaknetPacket),
     Connected(SocketAddr, u64),
@@ -98,7 +99,13 @@ impl Server {
                                 let _ = socket2.send_to(&data, source).await.unwrap();
                                 connections2.lock().await.insert(
                                     source,
-                                    Connection::new(source, socket2.clone(), id, time, p.mtu),
+                                    Connection::new(
+                                        source,
+                                        socket2.clone(),
+                                        id,
+                                        time,
+                                        p.mtu,
+                                    ),
                                 );
                             };
                             //connected!
@@ -144,16 +151,104 @@ impl Server {
 }
 
 pub struct Client {
-    pub socket: UdpSocket,
+    pub socket: Arc<UdpSocket>,
+    remote : SocketAddr,
+    connection: Arc<Mutex<Option<Connection>>>,
+    guid: u64,
+    mtu : u16,
+    time: Instant,
 }
 
 impl Client {
-    pub async fn new(_remote_address: Option<impl ToSocketAddrs>) -> Self {
+    pub async fn new(remote_address: SocketAddr,online : bool) -> Self {
+        let local : SocketAddr = {
+            if online {
+                "0.0.0.0:0".parse().unwrap()
+            }else{
+                "127.0.0.1:0".parse().unwrap()
+            }
+        };
         Self {
-            socket: UdpSocket::bind("0.0.0.0:0")
-                .await
-                .expect("Unable to bind to address"),
+            socket: Arc::new(UdpSocket::bind(local).await.unwrap()),
+            remote : remote_address,
+            connection: Arc::new(Mutex::new(None)),
+            guid : random::<u64>(),
+            mtu : 1492,
+            time: Instant::now(),
         }
+    }
+
+    pub fn listen(&self) {
+        let socket2 = self.socket.clone();
+        let connections2 = self.connection.clone();
+        let guid = self.guid;
+        let mtu = self.mtu;
+        let timer = self.time;
+        let remote = self.remote;
+        tokio::spawn(async move {
+            let mut v = [0u8; 1500];
+            loop {
+                let (size, source) = socket2.recv_from(&mut v).await.unwrap();
+                let buff = &v[..size];
+                if !source.eq(&remote){
+                    println!("packet from unknown address {}",source);
+                    continue;
+                }
+                if let Some(conn) = connections2.lock().await.as_mut() {
+                    conn.handle(buff);
+                    continue;
+                }
+
+                match buff[0] {
+                    OpenConnectionReply1::ID => {
+                        let reply1 = decode::<OpenConnectionReply1>(buff).unwrap();
+                        let request2 = OpenConnectionRequest2::new(source, reply1.mtu_size, guid);
+                        let payload = encode::<OpenConnectionRequest2>(request2).unwrap();
+                        socket2.send_to(&payload, source).await.unwrap();
+                    },
+                    OpenConnectionReply2::ID => {
+                        let connection = Connection::new(
+                            source,
+                            socket2.clone(),
+                            guid,
+                            timer,
+                            mtu
+                        );
+                        *connections2.lock().await = Some(connection);
+                        connections2.lock().await.as_mut().unwrap().connect();
+                    },
+                    _=>{
+                        println!("unknown packet ID {}",buff[0]);
+                    }
+                }
+            }
+        });
+    }
+    pub async fn connect(&self) {
+        let request1 = OpenConnectionRequest1::new(RAKNET_PROTOCOL_VERSION,self.mtu);
+        let payload = encode::<OpenConnectionRequest1>(request1).unwrap();
+        self.socket.send_to(&payload, self.remote).await.unwrap();
+    }
+
+    pub async fn recv(&self) -> Result<Vec<RaknetEvent>> {
+        let mut events: Vec<RaknetEvent> = vec![];
+        let mut disconnected_clients = vec![];
+        if let Some(conn) = self.connection.lock().await.as_mut() {
+            for event in conn.event_queue.clone() {
+                if let RaknetEvent::Disconnected(addr, _guid) = event {
+                    disconnected_clients.push(addr);
+                }
+                events.push(event);
+            }
+            conn.update();
+        }
+
+        for _addr in disconnected_clients.iter() {
+            //TODO!!!!
+            //self.connection.lock().await.remove(addr);
+        }
+        disconnected_clients.clear();
+        Ok(events)
     }
     pub fn address(&self) -> SocketAddr {
         self.socket.local_addr().unwrap()
@@ -182,7 +277,7 @@ impl Ping {
         let buff = &v[..size];
         if buff[0] == UnconnectedPong::ID {
             let pong = decode::<UnconnectedPong>(buff)?;
-            ret = pong.motd.to_owned();
+            ret = pong.motd;
         }
 
         Ok(ret)

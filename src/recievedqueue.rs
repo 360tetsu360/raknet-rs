@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 
-use crate::packets::frame::Frame;
+use crate::{packet::SplitPacketQueue, packets::frame::Frame};
 
 pub struct RecievdQueue {
     min: u32,
     max: u32,
-    packet_queue: HashMap<u32, Vec<u8>>,
+    packet_queue: HashMap<u32, Frame>,
+    splits: SplitPacketQueue,
 }
 
 impl RecievdQueue {
@@ -14,9 +15,21 @@ impl RecievdQueue {
             min: 0,
             max: 0,
             packet_queue: HashMap::new(),
+            splits: SplitPacketQueue::new(),
         }
     }
     pub fn add(&mut self, frame: Frame) {
+        if frame.split {
+            self.splits.add(&frame);
+            for packet in self.splits.get_and_clear() {
+                let f = packet.get_frame().unwrap();
+                if f.order_index >= self.max {
+                    self.max = f.order_index + 1
+                }
+                self.packet_queue.insert(f.order_index, f);
+            }
+            return;
+        }
         if frame.order_index < self.min {
             return;
         }
@@ -26,9 +39,9 @@ impl RecievdQueue {
         if frame.order_index >= self.max {
             self.max = frame.order_index + 1
         }
-        self.packet_queue.insert(frame.order_index, frame.data);
+        self.packet_queue.insert(frame.order_index, frame);
     }
-    pub fn get_all(&mut self) -> Vec<Vec<u8>> {
+    pub fn get_all(&mut self) -> Vec<Frame> {
         let mut ret = vec![];
         let mut index = self.min;
         for o in self.min..self.max {

@@ -1,6 +1,5 @@
 use raknet::raknet::Ping;
-use std::net::ToSocketAddrs;
-use tokio;
+use std::net::{SocketAddr, ToSocketAddrs};
 
 #[tokio::main]
 async fn main() {
@@ -8,8 +7,14 @@ async fn main() {
     let remote = "hivebedrock.network:19132"
         .to_socket_addrs()
         .unwrap()
-        .next()
-        .unwrap();
-    let pong = pinger.ping(remote).await.unwrap();
-    println!("{}", pong);
+        .collect::<Vec<SocketAddr>>();
+
+    let mut result = String::new();
+    for addr in remote {
+        if let Ok(p) = pinger.ping(addr).await {
+            result = p;
+            break;
+        }
+    }
+    println!("{:02X?}", result);
 }

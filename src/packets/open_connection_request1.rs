@@ -10,6 +10,15 @@ pub struct OpenConnectionRequest1 {
     pub mtu_size: u16, //[u8;mtusize]
 }
 
+impl OpenConnectionRequest1 {
+    pub fn new(protocol_version : u8,mtu_size : u16) -> Self {
+        Self{
+            _magic : true,
+            protocol_version,
+            mtu_size
+        }
+    }
+}
 impl Packet for OpenConnectionRequest1 {
     const ID: u8 = 0x5;
     fn read(payload: &[u8]) -> Result<Self> {

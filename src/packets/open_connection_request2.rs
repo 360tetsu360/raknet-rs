@@ -10,6 +10,16 @@ pub struct OpenConnectionRequest2 {
     pub guid: u64,
 }
 
+impl OpenConnectionRequest2 {
+    pub fn new(address: SocketAddr, mtu: u16, guid: u64) -> Self {
+        Self {
+            _magic: true,
+            address,
+            mtu,
+            guid,
+        }
+    }
+}
 impl Packet for OpenConnectionRequest2 {
     const ID: u8 = 0x7;
     fn read(payload: &[u8]) -> Result<Self> {

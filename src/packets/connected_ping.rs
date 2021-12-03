@@ -8,6 +8,14 @@ pub struct ConnectedPing {
     pub client_timestamp: u64,
 }
 
+impl ConnectedPing {
+    pub fn new(time: u64) -> Self {
+        Self {
+            client_timestamp: time,
+        }
+    }
+}
+
 impl Packet for ConnectedPing {
     const ID: u8 = 0x0;
     fn read(payload: &[u8]) -> Result<Self> {
