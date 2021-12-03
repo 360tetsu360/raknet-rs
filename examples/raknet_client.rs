@@ -1,11 +1,11 @@
-use raknet::raknet::{Client,RaknetEvent};
+use raknet::raknet::{Client, RaknetEvent};
 use std::net::SocketAddr;
 use tokio;
 
 #[tokio::main]
 async fn main() {
     let remote: SocketAddr = "127.0.0.1:19132".parse().expect("could not parse addr");
-    let client = Client::new(remote,false).await;
+    let client = Client::new(remote, false).await;
     client.listen();
     client.connect().await;
     loop {
@@ -19,8 +19,7 @@ async fn main() {
                 RaknetEvent::Disconnected(addr, guid) => {
                     println!("disconnected {} {}", addr, &guid)
                 }
-                RaknetEvent::Packet(_packet) => {
-                }
+                RaknetEvent::Packet(_packet) => {}
                 _ => {}
             }
         }

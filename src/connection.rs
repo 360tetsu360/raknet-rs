@@ -83,7 +83,6 @@ impl Connection {
     }
     pub fn handle(&mut self, buff: &[u8]) {
         let header = buff[0];
-        
 
         self.last_recieve = self.timer.elapsed().as_millis();
 
@@ -160,7 +159,7 @@ impl Connection {
             }
             ConnectionRequestAccepted::ID => {
                 self.handle_connectionrequest_accepted(payload);
-            },
+            }
             NewIncomingConnection::ID => {
                 //let p = decode::<NewIncomingConnection>(payload).unwrap();
             }
@@ -232,9 +231,7 @@ impl Connection {
         self.event_queue
             .push(RaknetEvent::Connected(self.address, self.guid))
     }
-    fn handle_connectionrequest_accepted(&mut self,_payload: &[u8]) {
-
-    }
+    fn handle_connectionrequest_accepted(&mut self, _payload: &[u8]) {}
     fn handle_connectedping(&mut self, payload: &[u8]) {
         let p = decode::<ConnectedPing>(payload).unwrap();
         let pong = ConnectedPong::new(

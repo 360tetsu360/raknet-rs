@@ -11,11 +11,11 @@ pub struct OpenConnectionRequest1 {
 }
 
 impl OpenConnectionRequest1 {
-    pub fn new(protocol_version : u8,mtu_size : u16) -> Self {
-        Self{
-            _magic : true,
+    pub fn new(protocol_version: u8, mtu_size: u16) -> Self {
+        Self {
+            _magic: true,
             protocol_version,
-            mtu_size
+            mtu_size,
         }
     }
 }

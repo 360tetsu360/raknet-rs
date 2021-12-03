@@ -23,7 +23,7 @@ use crate::{
     },
 };
 
-const RAKNET_PROTOCOL_VERSION : u8 = 0xa;
+const RAKNET_PROTOCOL_VERSION: u8 = 0xa;
 pub enum RaknetEvent {
     Packet(RaknetPacket),
     Connected(SocketAddr, u64),
@@ -99,13 +99,7 @@ impl Server {
                                 let _ = socket2.send_to(&data, source).await.unwrap();
                                 connections2.lock().await.insert(
                                     source,
-                                    Connection::new(
-                                        source,
-                                        socket2.clone(),
-                                        id,
-                                        time,
-                                        p.mtu,
-                                    ),
+                                    Connection::new(source, socket2.clone(), id, time, p.mtu),
                                 );
                             };
                             //connected!
@@ -152,28 +146,28 @@ impl Server {
 
 pub struct Client {
     pub socket: Arc<UdpSocket>,
-    remote : SocketAddr,
+    remote: SocketAddr,
     connection: Arc<Mutex<Option<Connection>>>,
     guid: u64,
-    mtu : u16,
+    mtu: u16,
     time: Instant,
 }
 
 impl Client {
-    pub async fn new(remote_address: SocketAddr,online : bool) -> Self {
-        let local : SocketAddr = {
+    pub async fn new(remote_address: SocketAddr, online: bool) -> Self {
+        let local: SocketAddr = {
             if online {
                 "0.0.0.0:0".parse().unwrap()
-            }else{
+            } else {
                 "127.0.0.1:0".parse().unwrap()
             }
         };
         Self {
             socket: Arc::new(UdpSocket::bind(local).await.unwrap()),
-            remote : remote_address,
+            remote: remote_address,
             connection: Arc::new(Mutex::new(None)),
-            guid : random::<u64>(),
-            mtu : 1492,
+            guid: random::<u64>(),
+            mtu: 1492,
             time: Instant::now(),
         }
     }
@@ -190,8 +184,8 @@ impl Client {
             loop {
                 let (size, source) = socket2.recv_from(&mut v).await.unwrap();
                 let buff = &v[..size];
-                if !source.eq(&remote){
-                    println!("packet from unknown address {}",source);
+                if !source.eq(&remote) {
+                    println!("packet from unknown address {}", source);
                     continue;
                 }
                 if let Some(conn) = connections2.lock().await.as_mut() {
@@ -205,27 +199,21 @@ impl Client {
                         let request2 = OpenConnectionRequest2::new(source, reply1.mtu_size, guid);
                         let payload = encode::<OpenConnectionRequest2>(request2).unwrap();
                         socket2.send_to(&payload, source).await.unwrap();
-                    },
+                    }
                     OpenConnectionReply2::ID => {
-                        let connection = Connection::new(
-                            source,
-                            socket2.clone(),
-                            guid,
-                            timer,
-                            mtu
-                        );
+                        let connection = Connection::new(source, socket2.clone(), guid, timer, mtu);
                         *connections2.lock().await = Some(connection);
                         connections2.lock().await.as_mut().unwrap().connect();
-                    },
-                    _=>{
-                        println!("unknown packet ID {}",buff[0]);
+                    }
+                    _ => {
+                        println!("unknown packet ID {}", buff[0]);
                     }
                 }
             }
         });
     }
     pub async fn connect(&self) {
-        let request1 = OpenConnectionRequest1::new(RAKNET_PROTOCOL_VERSION,self.mtu);
+        let request1 = OpenConnectionRequest1::new(RAKNET_PROTOCOL_VERSION, self.mtu);
         let payload = encode::<OpenConnectionRequest1>(request1).unwrap();
         self.socket.send_to(&payload, self.remote).await.unwrap();
     }
