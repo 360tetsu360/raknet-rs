@@ -235,7 +235,7 @@ impl Client {
         });
     }
     pub async fn connect(&self) {
-        let request1 = OpenConnectionRequest1::new(RAKNET_PROTOCOL_VERSION, self.mtu);
+        let request1 = OpenConnectionRequest1::new(0xb, self.mtu);
         let payload = encode::<OpenConnectionRequest1>(request1).unwrap();
         self.socket.send_to(&payload, self.remote).await.unwrap();
     }

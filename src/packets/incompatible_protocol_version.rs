@@ -32,8 +32,8 @@ impl Packet for IncompatibleProtocolVersion {
     }
     fn write(&self) -> Result<Vec<u8>> {
         let mut cursor = Writer::new(vec![]);
-        cursor.write_u8(self.server_protocol)?;
         cursor.write_magic()?;
+        cursor.write_u8(self.server_protocol)?;
         cursor.write_u64(self.server_guid, Endian::Big)?;
 
         Ok(cursor.get_raw_payload())

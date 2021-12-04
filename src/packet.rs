@@ -64,6 +64,9 @@ impl ACKQueue {
     pub fn get_missing(&self) -> Vec<u32> {
         self.missing.clone()
     }
+    pub fn get_missing_len(&self) -> usize {
+        self.missing.len()
+    }
 }
 
 #[derive(Clone)]
