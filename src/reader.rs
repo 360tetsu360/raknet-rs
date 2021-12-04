@@ -55,6 +55,13 @@ impl<'a> Reader<'a> {
             Endian::Native => self.cursor.read_u64::<NativeEndian>(),
         }
     }
+    pub fn read_i64(&mut self, n: Endian) -> Result<i64> {
+        match n {
+            Endian::Big => self.cursor.read_i64::<BigEndian>(),
+            Endian::Little => self.cursor.read_i64::<LittleEndian>(),
+            Endian::Native => self.cursor.read_i64::<NativeEndian>(),
+        }
+    }
 
     pub fn read_u24le(&mut self, n: Endian) -> Result<u32> {
         match n {

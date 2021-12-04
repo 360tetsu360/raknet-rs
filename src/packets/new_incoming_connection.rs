@@ -6,8 +6,8 @@ use std::{io::Result, net::SocketAddr};
 #[derive(Clone)]
 pub struct NewIncomingConnection {
     pub server_address: SocketAddr,
-    pub request_timestamp: u64,
-    pub accepted_timestamp: u64,
+    pub request_timestamp: i64,
+    pub accepted_timestamp: i64,
 }
 
 impl Packet for NewIncomingConnection {
@@ -18,9 +18,9 @@ impl Packet for NewIncomingConnection {
             server_address: cursor.read_address()?,
             request_timestamp: {
                 cursor.next(((payload.len() - 16) - cursor.pos() as usize) as u64);
-                cursor.read_u64(Endian::Big)?
+                cursor.read_i64(Endian::Big)?
             },
-            accepted_timestamp: cursor.read_u64(Endian::Big)?,
+            accepted_timestamp: cursor.read_i64(Endian::Big)?,
         })
     }
     fn write(&self) -> Result<Vec<u8>> {
@@ -29,8 +29,8 @@ impl Packet for NewIncomingConnection {
         for _ in 0..10 {
             cursor.write_u8(0x06)?;
         }
-        cursor.write_u64(self.request_timestamp, Endian::Big)?;
-        cursor.write_u64(self.accepted_timestamp, Endian::Big)?;
+        cursor.write_i64(self.request_timestamp, Endian::Big)?;
+        cursor.write_i64(self.accepted_timestamp, Endian::Big)?;
         Ok(cursor.get_raw_payload())
     }
 }

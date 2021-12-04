@@ -74,9 +74,8 @@ impl Connection {
         }
     }
     pub fn connect(&mut self) {
-        println!("A!!");
         let request =
-            ConnectionRequest::new(self.guid, self.timer.elapsed().as_millis() as u64, false);
+            ConnectionRequest::new(self.guid, self.timer.elapsed().as_millis() as i64, false);
         let buff = encode::<ConnectionRequest>(request).unwrap();
         let frame = Frame::new(Reliability::Reliable, &buff);
         self.send(frame);
@@ -101,7 +100,7 @@ impl Connection {
         }
     }
     fn send_ping(&mut self) {
-        let connected_ping = ConnectedPing::new(self.last_ping as u64);
+        let connected_ping = ConnectedPing::new(self.last_ping as i64);
         let frame = Frame::new(
             Reliability::Unreliable,
             &encode::<ConnectedPing>(connected_ping).unwrap(),
@@ -197,6 +196,7 @@ impl Connection {
                 frame.split = true;
                 frame.message_index = self.message_index;
                 frame.order_index = self.order_index;
+                self.send(frame);
                 self.message_index += 1;
             }
             self.order_index += 1;
@@ -231,7 +231,17 @@ impl Connection {
         self.event_queue
             .push(RaknetEvent::Connected(self.address, self.guid))
     }
-    fn handle_connectionrequest_accepted(&mut self, _payload: &[u8]) {}
+    fn handle_connectionrequest_accepted(&mut self, payload: &[u8]) {
+        let accepted = decode::<ConnectionRequestAccepted>(payload).unwrap();
+        let newincoming = NewIncomingConnection {
+            server_address: self.address,
+            request_timestamp: accepted.request_timestamp,
+            accepted_timestamp: accepted.accepted_timestamp,
+        };
+        let buff = encode::<NewIncomingConnection>(newincoming).unwrap();
+        let frame = Frame::new(Reliability::ReliableOrdered, &buff);
+        self.send(frame);
+    }
     fn handle_connectedping(&mut self, payload: &[u8]) {
         let p = decode::<ConnectedPing>(payload).unwrap();
         let pong = ConnectedPong::new(

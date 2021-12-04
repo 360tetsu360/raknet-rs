@@ -15,8 +15,8 @@ use crate::{
     connection::Connection,
     packet::RaknetPacket,
     packets::{
-        decode, encode, open_connection_reply1::OpenConnectionReply1,
-        open_connection_reply2::OpenConnectionReply2,
+        decode, encode, incompatible_protocol_version::IncompatibleProtocolVersion,
+        open_connection_reply1::OpenConnectionReply1, open_connection_reply2::OpenConnectionReply2,
         open_connection_request1::OpenConnectionRequest1,
         open_connection_request2::OpenConnectionRequest2, unconnected_ping::UnconnectedPing,
         unconnected_pong::UnconnectedPong, Packet,
@@ -29,6 +29,13 @@ pub enum RaknetEvent {
     Connected(SocketAddr, u64),
     Disconnected(SocketAddr, u64),
     Error(SocketAddr, Error),
+}
+
+trait ServerHandler {
+    fn on_connected(&mut self, address: SocketAddr);
+    fn on_message(&mut self, address: SocketAddr, packet: RaknetPacket);
+    fn on_disconnected(&mut self, address: SocketAddr);
+    fn on_error(&mut self, e: Error);
 }
 
 impl Clone for RaknetEvent {
@@ -87,10 +94,18 @@ impl Server {
                         }
                         OpenConnectionRequest1::ID => {
                             let p = decode::<OpenConnectionRequest1>(buff).unwrap();
-                            let ocreply1 = OpenConnectionReply1::new(id, false, p.mtu_size);
-                            if let Ok(data) = encode::<OpenConnectionReply1>(ocreply1) {
-                                let _ = socket2.send_to(&data, source).await.unwrap();
-                            };
+                            if p.protocol_version == RAKNET_PROTOCOL_VERSION {
+                                let ocreply1 = OpenConnectionReply1::new(id, false, p.mtu_size);
+                                if let Ok(data) = encode::<OpenConnectionReply1>(ocreply1) {
+                                    let _ = socket2.send_to(&data, source).await.unwrap();
+                                };
+                            } else {
+                                let reply =
+                                    IncompatibleProtocolVersion::new(RAKNET_PROTOCOL_VERSION, id);
+                                if let Ok(data) = encode::<IncompatibleProtocolVersion>(reply) {
+                                    let _ = socket2.send_to(&data, source).await.unwrap();
+                                };
+                            }
                         }
                         OpenConnectionRequest2::ID => {
                             let p = decode::<OpenConnectionRequest2>(buff).unwrap();
@@ -205,6 +220,13 @@ impl Client {
                         *connections2.lock().await = Some(connection);
                         connections2.lock().await.as_mut().unwrap().connect();
                     }
+                    IncompatibleProtocolVersion::ID => {
+                        let version = decode::<IncompatibleProtocolVersion>(buff).unwrap();
+                        println!(
+                            "server : {}, client : {}",
+                            version.server_protocol, RAKNET_PROTOCOL_VERSION
+                        );
+                    }
                     _ => {
                         println!("unknown packet ID {}", buff[0]);
                     }
@@ -238,6 +260,7 @@ impl Client {
         disconnected_clients.clear();
         Ok(events)
     }
+
     pub fn address(&self) -> SocketAddr {
         self.socket.local_addr().unwrap()
     }

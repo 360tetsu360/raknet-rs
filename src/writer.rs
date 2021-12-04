@@ -56,6 +56,14 @@ impl Writer {
         }
     }
 
+    pub fn write_i64(&mut self, v: i64, n: Endian) -> Result<()> {
+        match n {
+            Endian::Big => self.cursor.write_i64::<BigEndian>(v),
+            Endian::Little => self.cursor.write_i64::<LittleEndian>(v),
+            Endian::Native => self.cursor.write_i64::<NativeEndian>(v),
+        }
+    }
+
     pub fn write_string(&mut self, body: &str) -> Result<()> {
         let raw = body.as_bytes();
         self.write_u16(raw.len() as u16, Endian::Big)?;

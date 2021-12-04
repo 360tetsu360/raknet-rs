@@ -10,6 +10,16 @@ pub struct IncompatibleProtocolVersion {
     pub server_guid: u64,
 }
 
+impl IncompatibleProtocolVersion {
+    pub fn new(protocol_v: u8, guid: u64) -> Self {
+        Self {
+            _magic: true,
+            server_protocol: protocol_v,
+            server_guid: guid,
+        }
+    }
+}
+
 impl Packet for IncompatibleProtocolVersion {
     const ID: u8 = 0x19;
     fn read(payload: &[u8]) -> Result<Self> {
@@ -22,9 +32,8 @@ impl Packet for IncompatibleProtocolVersion {
     }
     fn write(&self) -> Result<Vec<u8>> {
         let mut cursor = Writer::new(vec![]);
-
-        cursor.write_magic()?;
         cursor.write_u8(self.server_protocol)?;
+        cursor.write_magic()?;
         cursor.write_u64(self.server_guid, Endian::Big)?;
 
         Ok(cursor.get_raw_payload())
