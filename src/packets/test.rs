@@ -1,10 +1,11 @@
 use crate::packets::{
-    connection_request::ConnectionRequest, connection_request_accepted::ConnectionRequestAccepted,
-    decode, encode, nack::Nack, new_incoming_connection::NewIncomingConnection,
-    open_connection_reply1::OpenConnectionReply1, open_connection_reply2::OpenConnectionReply2,
-    open_connection_request1::OpenConnectionRequest1,
+    ack::Ack, connection_request::ConnectionRequest,
+    connection_request_accepted::ConnectionRequestAccepted, decode, encode,
+    incompatible_protocol_version::IncompatibleProtocolVersion, nack::Nack,
+    new_incoming_connection::NewIncomingConnection, open_connection_reply1::OpenConnectionReply1,
+    open_connection_reply2::OpenConnectionReply2, open_connection_request1::OpenConnectionRequest1,
     open_connection_request2::OpenConnectionRequest2, unconnected_ping::UnconnectedPing,
-    unconnected_pong::UnconnectedPong, incompatible_protocol_version::IncompatibleProtocolVersion,
+    unconnected_pong::UnconnectedPong,
 };
 
 const UNCONNECTED_PING_DATA: [u8; 33] = [
@@ -199,13 +200,11 @@ const NEW_INCOMING_CONNECTION_DATA: [u8; 198] = [
     0x00, 0x00, 0x0f, 0x8d, 0xcc, 0x27,
 ];
 
-const INCOMPATIBLE_PROTOCOL_VERSION_DATA : [u8;26] = [
-    0x19, 0x0a, 0x00, 0xff, 0xff, 0x00, 0xfe, 0xfe, 
-    0xfe, 0xfe, 0xfd, 0xfd, 0xfd, 0xfd, 0x12, 0x34, 
-    0x56, 0x78, 0xa2, 0xa8, 0x7f, 0xa9, 0xae, 0xe7, 
-    0xe2, 0x6b
+const INCOMPATIBLE_PROTOCOL_VERSION_DATA: [u8; 26] = [
+    0x19, 0x0a, 0x00, 0xff, 0xff, 0x00, 0xfe, 0xfe, 0xfe, 0xfe, 0xfd, 0xfd, 0xfd, 0xfd, 0x12, 0x34,
+    0x56, 0x78, 0xa2, 0xa8, 0x7f, 0xa9, 0xae, 0xe7, 0xe2, 0x6b,
 ];
-
+const ACK_DATA: [u8; 7] = [0xc0, 0x00, 0x01, 0x01, 0x02, 0x00, 0x00];
 const NACK_DATA: [u8; 7] = [0xa0, 0x00, 0x01, 0x01, 0x0d, 0x00, 0x00];
 
 #[test]
@@ -266,8 +265,13 @@ fn raknet_packet() {
         decode::<NewIncomingConnection>(&NEW_INCOMING_CONNECTION_DATA).unwrap();
     encode::<NewIncomingConnection>(new_incoming_connection).unwrap();
 
-    let incompatible_protocol_version = decode::<IncompatibleProtocolVersion>(&INCOMPATIBLE_PROTOCOL_VERSION_DATA).unwrap();
+    let incompatible_protocol_version =
+        decode::<IncompatibleProtocolVersion>(&INCOMPATIBLE_PROTOCOL_VERSION_DATA).unwrap();
     encode::<IncompatibleProtocolVersion>(incompatible_protocol_version).unwrap();
+
+    let ack = decode::<Ack>(&ACK_DATA).unwrap();
+    let ack_encoded = encode::<Ack>(ack).unwrap();
+    debug_assert_eq!(&ack_encoded, &ACK_DATA);
 
     let nack = decode::<Nack>(&NACK_DATA).unwrap();
     let nack_encoded = encode::<Nack>(nack).unwrap();

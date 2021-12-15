@@ -4,11 +4,11 @@ use std::net::{SocketAddr, ToSocketAddrs};
 #[tokio::test]
 async fn server() {
     let remote_addr: SocketAddr = "127.0.0.1:19132".parse().expect("could not parse addr");
-    let server = Server::new(
+    let mut server = Server::new(
             remote_addr,
         "MCPE;§5raknet rs;390;1.17.42;0;10;13253860892328930865;Bedrock level;Survival;1;19132;19133;".to_owned()
-        ).await;
-    server.listen();
+        );
+    server.listen().await;
     for _ in 0..0 {
         tokio::time::sleep(std::time::Duration::from_millis(1)).await;
         let events = server.recv().await.unwrap();
