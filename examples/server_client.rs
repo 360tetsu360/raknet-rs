@@ -46,6 +46,7 @@ async fn client() {
     loop {
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         let events = client.recv().await.unwrap();
+        let mut dissconnected = false;
         for event in events {
             match event {
                 RaknetEvent::Connected(addr, guid) => {
@@ -53,14 +54,20 @@ async fn client() {
                     client.send(b"Hello Server!!").await.unwrap();
                 }
                 RaknetEvent::Disconnected(addr, guid) => {
-                    println!("disconnected {} {}", addr, &guid)
+                    println!("disconnected {} {}", addr, &guid);
+                    dissconnected = true;
+                    break;
                 }
                 RaknetEvent::Packet(packet) => {
                     let msg = String::from_utf8_lossy(&packet.data);
-                    println!("{}", msg);
+                    println!("{}", &msg);
+                    client.dissconnect().await;
                 }
                 _ => {}
             }
+        }
+        if dissconnected {
+            break;
         }
     }
 }

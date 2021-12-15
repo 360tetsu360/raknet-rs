@@ -33,6 +33,7 @@ pub struct Connection {
     order_index: u32,
     recieved: RecievdQueue,
     last_ping: u128,
+    dissconnected : bool
 }
 
 impl Connection {
@@ -57,6 +58,7 @@ impl Connection {
             order_index: 0,
             recieved: RecievdQueue::new(),
             last_ping: timer.elapsed().as_millis(),
+            dissconnected : false
         }
     }
     pub async fn update(&mut self) {
@@ -118,6 +120,9 @@ impl Connection {
         self.send(frame);
     }
     async fn send_ack(&mut self, packet: (u32, u32)) {
+        if self.dissconnected {
+            return;
+        }
         let ack = Ack::new(packet);
         let buff = match encode::<Ack>(ack) {
             Ok(buff) => buff,
@@ -169,7 +174,9 @@ impl Connection {
             }
         };
         self.ack_queue.add(frame_set.sequence_number);
-        if self.ack_queue.get_missing_len() != 0 {}
+        if self.ack_queue.get_missing_len() != 0 {
+            todo!("send nack")
+        }
         for frame in frame_set.datas {
             self.recieve_packet(frame);
         }
@@ -200,6 +207,7 @@ impl Connection {
             ConnectedPong::ID => {}
             Disconnected::ID => {
                 self.disconnect();
+                self.disconnected();
             }
             _ => {
                 let rak_packet = RaknetPacket::new(self.address, self.guid, payload.to_vec());
@@ -250,13 +258,17 @@ impl Connection {
             match self.socket.send_to(&frame_set, self.address).await {
                 Ok(_) => {}
                 Err(e) => {
-                    eprintln!("{}", e);
-                    error = true;
+                    if !self.dissconnected {
+                        eprintln!("{}", e);
+                        error = true;
+                    }
                 }
             }
         }
         if error {
-            self.disconnected();
+            if !self.dissconnected {
+                self.disconnected();
+            }
         }
     }
     fn handle_connectionrequest(&mut self, payload: &[u8]) {
@@ -334,15 +346,18 @@ impl Connection {
     }
 
     pub fn disconnect(&mut self) {
-        let mut frame = Frame::new(Reliability::ReliableOrdered, &[Disconnected::ID]);
-        self.message_index += 1;
-        self.order_index += 1;
-        frame.message_index = self.message_index;
-        frame.order_index = self.order_index;
-        self.send(frame);
+        if !self.dissconnected {
+            let mut frame = Frame::new(Reliability::ReliableOrdered, &[Disconnected::ID]);
+            self.message_index += 1;
+            self.order_index += 1;
+            frame.message_index = self.message_index;
+            frame.order_index = self.order_index;
+            self.send(frame);
+        }
     }
 
     fn disconnected(&mut self) {
+        self.dissconnected = true;
         self.event_queue
             .push(RaknetEvent::Disconnected(self.address, self.guid));
     }

@@ -225,6 +225,14 @@ impl Server {
         *old = motd;
         Ok(())
     }
+
+    pub async fn dissconnect(&mut self,addr : SocketAddr) {
+        if !self.connection.lock().await.contains_key(&addr){
+            return;
+        }
+
+        self.connection.lock().await.get_mut(&addr).unwrap().disconnect();
+    }
 }
 
 pub struct Client {
@@ -349,6 +357,11 @@ impl Client {
                     Err(e) => eprintln!("{}", &e),
                 };
             };
+        }
+    }
+    pub async fn dissconnect(&mut self) {
+        if let Some(conn) = self.connection.lock().await.as_mut() {
+            conn.disconnect();
         }
     }
     pub async fn send(&mut self, buff: &[u8]) -> Result<()> {
