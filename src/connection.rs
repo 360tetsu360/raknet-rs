@@ -33,7 +33,7 @@ pub struct Connection {
     order_index: u32,
     recieved: RecievdQueue,
     last_ping: u128,
-    dissconnected : bool
+    dissconnected: bool,
 }
 
 impl Connection {
@@ -58,7 +58,7 @@ impl Connection {
             order_index: 0,
             recieved: RecievdQueue::new(),
             last_ping: timer.elapsed().as_millis(),
-            dissconnected : false
+            dissconnected: false,
         }
     }
     pub async fn update(&mut self) {

@@ -226,12 +226,17 @@ impl Server {
         Ok(())
     }
 
-    pub async fn dissconnect(&mut self,addr : SocketAddr) {
-        if !self.connection.lock().await.contains_key(&addr){
+    pub async fn dissconnect(&mut self, addr: SocketAddr) {
+        if !self.connection.lock().await.contains_key(&addr) {
             return;
         }
 
-        self.connection.lock().await.get_mut(&addr).unwrap().disconnect();
+        self.connection
+            .lock()
+            .await
+            .get_mut(&addr)
+            .unwrap()
+            .disconnect();
     }
 }
 
