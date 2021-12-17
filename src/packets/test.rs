@@ -313,4 +313,7 @@ fn raknet_packet() {
     let frameset = FrameSet::decode(&FRAME_SETPACKET_DATA).unwrap();
     let frameset_encoded = frameset.encode().unwrap();
     debug_assert_eq!(&frameset_encoded, &FRAME_SETPACKET_DATA);
+
+    let nack = Nack::new((0,1));
+    debug_assert_eq!(nack.get_all(),vec![0,1])
 }
