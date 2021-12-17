@@ -21,7 +21,7 @@ impl RecievdQueue {
     pub fn add(&mut self, frame: Frame) {
         if frame.split {
             self.splits.add(&frame);
-            for packet in self.splits.get_and_clear() {
+            for mut packet in self.splits.get_and_clear() {
                 let f = packet.get_frame().unwrap();
                 if f.order_index >= self.max {
                     self.max = f.order_index + 1

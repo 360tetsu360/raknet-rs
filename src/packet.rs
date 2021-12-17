@@ -1,9 +1,6 @@
 use std::{collections::HashMap, io::Result, net::SocketAddr};
 
-use crate::{
-    packets::{frame::Frame, Reliability},
-    writer::Writer,
-};
+use crate::packets::{frame::Frame, Reliability};
 pub struct ACKQueue {
     pub packets: Vec<(u32, u32)>, //min max
     pub missing: Vec<u32>,
@@ -105,16 +102,16 @@ impl SplitPacket {
     pub fn is_full(&self) -> bool {
         self.full
     }
-    pub fn get_all(&self, cursor: &mut Writer) -> Result<()> {
+    pub fn get_all(&mut self) -> Vec<u8> {
+        let mut ret = vec![];
         for index in 0..self.split_size {
-            cursor.write(self.data.get(&index).unwrap())?;
+            ret.append(self.data.get_mut(&index).unwrap())
         }
-        Ok(())
+        ret
     }
-    pub fn get_frame(&self) -> Result<Frame> {
-        let mut cursor = Writer::new(vec![]);
-        self.get_all(&mut cursor)?;
-        let mut frame = Frame::new(self.reliability.clone(), &cursor.get_raw_payload());
+    pub fn get_frame(&mut self) -> Result<Frame> {
+        let buff: Vec<u8> = self.get_all();
+        let mut frame = Frame::new(self.reliability.clone(), &buff);
         frame.order_index = self.order_index;
         Ok(frame)
     }

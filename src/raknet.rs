@@ -22,7 +22,7 @@ use crate::{
 
 const RAKNET_PROTOCOL_VERSION: u8 = 0xa;
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum DisconnectReason {
     Timeout,
     Disconnect,
@@ -200,7 +200,7 @@ impl Server {
         let mut disconnected_clients = vec![];
         for (_address, connection) in self.connection.lock().await.iter_mut() {
             for event in connection.event_queue.clone() {
-                if let RaknetEvent::Disconnected(addr, _guid, _reason) = event.clone() {
+                if let RaknetEvent::Disconnected(addr, _guid, _reason) = event {
                     disconnected_clients.push(addr);
                 }
                 events.push(event);

@@ -14,12 +14,6 @@ pub struct FrameSet {
 }
 
 impl FrameSet {
-    /*pub fn new(sequence_number: u32, datas: &[Frame]) -> Self {
-        Self {
-            sequence_number,
-            datas: datas.to_vec(),
-        }
-    }*/
     pub fn decode(payload: &[u8]) -> Result<Self> {
         let size = payload.len();
         let mut cursor = Reader::new(payload);
