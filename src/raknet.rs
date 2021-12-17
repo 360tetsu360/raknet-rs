@@ -21,10 +21,16 @@ use crate::{
 };
 
 const RAKNET_PROTOCOL_VERSION: u8 = 0xa;
+
+#[derive(Clone)]
+pub enum DisconnectReason {
+    Timeout,
+    Disconnect,
+}
 pub enum RaknetEvent {
     Packet(RaknetPacket),
     Connected(SocketAddr, u64),
-    Disconnected(SocketAddr, u64),
+    Disconnected(SocketAddr, u64, DisconnectReason),
     Error(SocketAddr, Error),
 }
 
@@ -40,7 +46,7 @@ impl Clone for RaknetEvent {
         match self {
             RaknetEvent::Packet(p) => RaknetEvent::Packet(p.clone()),
             RaknetEvent::Connected(p, e) => RaknetEvent::Connected(*p, *e),
-            RaknetEvent::Disconnected(p, e) => RaknetEvent::Disconnected(*p, *e),
+            RaknetEvent::Disconnected(p, e, r) => RaknetEvent::Disconnected(*p, *e, r.clone()),
             RaknetEvent::Error(p, err) => {
                 RaknetEvent::Error(*p, std::io::Error::new(err.kind(), err.to_string()))
             }
@@ -193,7 +199,7 @@ impl Server {
         let mut disconnected_clients = vec![];
         for (_address, connection) in self.connection.lock().await.iter_mut() {
             for event in connection.event_queue.clone() {
-                if let RaknetEvent::Disconnected(addr, _guid) = event {
+                if let RaknetEvent::Disconnected(addr, _guid, _reason) = event.clone() {
                     disconnected_clients.push(addr);
                 }
                 events.push(event);
@@ -226,7 +232,7 @@ impl Server {
         Ok(())
     }
 
-    pub async fn dissconnect(&mut self, addr: SocketAddr) {
+    pub async fn disconnect(&mut self, addr: SocketAddr) {
         if !self.connection.lock().await.contains_key(&addr) {
             return;
         }
@@ -364,7 +370,7 @@ impl Client {
             };
         }
     }
-    pub async fn dissconnect(&mut self) {
+    pub async fn disconnect(&mut self) {
         if let Some(conn) = self.connection.lock().await.as_mut() {
             conn.disconnect();
         }
@@ -380,7 +386,7 @@ impl Client {
         let mut disconnected_clients = vec![];
         if let Some(conn) = self.connection.lock().await.as_mut() {
             for event in conn.event_queue.clone() {
-                if let RaknetEvent::Disconnected(addr, _guid) = event {
+                if let RaknetEvent::Disconnected(addr, _guid, _reason) = event.clone() {
                     disconnected_clients.push(addr);
                 }
                 events.push(event);

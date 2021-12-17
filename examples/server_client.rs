@@ -1,7 +1,6 @@
 use raknet::raknet::{Client, RaknetEvent, Server};
 use std::io::stdin;
 use std::net::{SocketAddr, ToSocketAddrs};
-use tokio;
 
 async fn server() {
     let local: SocketAddr = "127.0.0.1:19132".parse().expect("could not parse addr");
@@ -18,18 +17,14 @@ async fn server() {
                 RaknetEvent::Connected(addr, guid) => {
                     println!("connected {} {}", addr, &guid)
                 }
-                RaknetEvent::Disconnected(addr, guid) => {
+                RaknetEvent::Disconnected(addr, guid, _reason) => {
                     println!("disconnected {} {}", addr, &guid)
                 }
                 RaknetEvent::Packet(packet) => {
-                    let msg = String::from_utf8_lossy(&packet.data);
-                    println!("{}", msg);
-                    if msg == "Hello Server!!" {
-                        server
-                            .send_to(&packet.address, b"Hello Client")
-                            .await
-                            .unwrap();
-                    }
+                    server
+                    .send_to(&packet.address, &packet.data)
+                    .await
+                    .unwrap();
                 }
                 _ => {}
             }
@@ -39,7 +34,6 @@ async fn server() {
 
 async fn client() {
     let mut remote = "127.0.0.1:19132".to_socket_addrs().unwrap();
-    //let remote: SocketAddr = "hivebedrock.network".parse().expect("could not parse addr");
     let mut client = Client::new(remote.next().unwrap(), true);
     client.listen().await;
     client.connect().await;
@@ -51,9 +45,10 @@ async fn client() {
             match event {
                 RaknetEvent::Connected(addr, guid) => {
                     println!("connected {} {}", addr, &guid);
+                    //client.send(&[0u8;4096]).await.unwrap();
                     client.send(b"Hello Server!!").await.unwrap();
                 }
-                RaknetEvent::Disconnected(addr, guid) => {
+                RaknetEvent::Disconnected(addr, guid, _reason) => {
                     println!("disconnected {} {}", addr, &guid);
                     dissconnected = true;
                     break;
@@ -61,7 +56,7 @@ async fn client() {
                 RaknetEvent::Packet(packet) => {
                     let msg = String::from_utf8_lossy(&packet.data);
                     println!("{}", &msg);
-                    client.dissconnect().await;
+                    client.disconnect().await;
                 }
                 _ => {}
             }

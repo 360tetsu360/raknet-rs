@@ -17,7 +17,7 @@ async fn server() {
                 RaknetEvent::Connected(addr, guid) => {
                     println!("connected {} {}", addr, &guid)
                 }
-                RaknetEvent::Disconnected(addr, guid) => {
+                RaknetEvent::Disconnected(addr, guid, _reason) => {
                     println!("disconnected {} {}", addr, &guid)
                 }
                 RaknetEvent::Packet(_packet) => {}

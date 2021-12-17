@@ -1,6 +1,5 @@
 use raknet::raknet::{RaknetEvent, Server};
 use std::net::SocketAddr;
-use tokio;
 #[tokio::main]
 async fn main() {
     let local: SocketAddr = "127.0.0.1:19132".parse().expect("could not parse addr");
@@ -17,10 +16,12 @@ async fn main() {
                 RaknetEvent::Connected(addr, guid) => {
                     println!("connected {} {}", addr, &guid)
                 }
-                RaknetEvent::Disconnected(addr, guid) => {
+                RaknetEvent::Disconnected(addr, guid, _reason) => {
                     println!("disconnected {} {}", addr, &guid)
                 }
-                RaknetEvent::Packet(packet) => if packet.data[0] == 0xfe {},
+                RaknetEvent::Packet(packet) => {
+                    println!("{}", packet.data[0]);
+                }
                 _ => {}
             }
         }
