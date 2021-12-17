@@ -188,7 +188,7 @@ impl Server {
                         .await
                         .get_mut(&source)
                         .unwrap()
-                        .handle(&v[..size]); //todo : error handling
+                        .handle(&v[..size]).await;
                 }
             }
         });
@@ -304,7 +304,7 @@ impl Client {
                     continue;
                 }
                 if let Some(conn) = connections2.lock().await.as_mut() {
-                    conn.handle(buff);
+                    conn.handle(buff).await;
                     continue;
                 }
 
@@ -383,22 +383,12 @@ impl Client {
     }
     pub async fn recv(&self) -> Result<Vec<RaknetEvent>> {
         let mut events: Vec<RaknetEvent> = vec![];
-        let mut disconnected_clients = vec![];
         if let Some(conn) = self.connection.lock().await.as_mut() {
             for event in conn.event_queue.clone() {
-                if let RaknetEvent::Disconnected(addr, _guid, _reason) = event.clone() {
-                    disconnected_clients.push(addr);
-                }
                 events.push(event);
             }
             conn.update().await;
         }
-
-        for _addr in disconnected_clients.iter() {
-            //TODO!!!!
-            //self.connection.lock().await.remove(addr);
-        }
-        disconnected_clients.clear();
         Ok(events)
     }
 

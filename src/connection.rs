@@ -91,7 +91,7 @@ impl Connection {
         let frame = Frame::new(Reliability::Reliable, &buff);
         self.send(frame);
     }
-    pub fn handle(&mut self, buff: &[u8]) {
+    pub async fn handle(&mut self, buff: &[u8]) {
         let header = buff[0];
 
         self.last_recieve = self.timer.elapsed().as_millis();
@@ -101,7 +101,7 @@ impl Connection {
         } else if header & NACK_FLAG != 0 {
             self.handle_nack(buff);
         } else if header & DATAGRAM_FLAG != 0 {
-            self.handle_datagram(buff);
+            self.handle_datagram(buff).await;
         }
     }
     async fn flush_ack(&mut self) {
@@ -142,6 +142,26 @@ impl Connection {
             }
         }
     }
+    async fn send_nack(&mut self, packet: u32) {
+        if self.dissconnected {
+            return;
+        }
+        let nack = Nack::new((packet,packet));
+        let buff = match encode::<Nack>(nack) {
+            Ok(buff) => buff,
+            Err(e) => {
+                eprintln!("failed to encode nack {}", e);
+                return;
+            }
+        };
+        match self.socket.send_to(&buff, self.address).await {
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("{}", e);
+                self.disconnected(DisconnectReason::Disconnect);
+            }
+        }
+    }
     fn handle_ack(&mut self, buff: &[u8]) {
         let ack = match decode::<Ack>(buff) {
             Ok(ack) => ack,
@@ -168,7 +188,7 @@ impl Connection {
         }
     }
 
-    fn handle_datagram(&mut self, buff: &[u8]) {
+    async fn handle_datagram(&mut self, buff: &[u8]) {
         let frame_set = match FrameSet::decode(buff) {
             Ok(frameset) => frameset,
             Err(e) => {
@@ -178,7 +198,9 @@ impl Connection {
         };
         self.ack_queue.add(frame_set.sequence_number);
         if self.ack_queue.get_missing_len() != 0 {
-            todo!("send nack")
+            for miss in self.ack_queue.get_missing() {
+                self.send_nack(miss).await;
+            }
         }
         for frame in frame_set.datas {
             self.recieve_packet(frame);

@@ -13,7 +13,7 @@ pub struct Nack {
     pub sequences: (u32, u32),
 }
 impl Nack {
-    /*pub fn new(sequences: (u32, u32)) -> Self {
+    pub fn new(sequences: (u32, u32)) -> Self {
         if sequences.0 == sequences.1 {
             Self {
                 record_count: 1,
@@ -27,7 +27,7 @@ impl Nack {
                 sequences,
             }
         }
-    }*/
+    }
     pub fn get_all(&self) -> Vec<u32> {
         let mut ret = vec![];
         for i in self.sequences.0..self.sequences.1 + 1 {
