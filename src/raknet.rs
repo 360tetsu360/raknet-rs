@@ -46,7 +46,7 @@ impl Clone for RaknetEvent {
         match self {
             RaknetEvent::Packet(p) => RaknetEvent::Packet(p.clone()),
             RaknetEvent::Connected(p, e) => RaknetEvent::Connected(*p, *e),
-            RaknetEvent::Disconnected(p, e, r) => RaknetEvent::Disconnected(*p, *e, r.clone()),
+            RaknetEvent::Disconnected(p, e, r) => RaknetEvent::Disconnected(*p, *e, *r),
             RaknetEvent::Error(p, err) => {
                 RaknetEvent::Error(*p, std::io::Error::new(err.kind(), err.to_string()))
             }

@@ -1,11 +1,12 @@
 use crate::packets::{
     ack::Ack, connected_ping::ConnectedPing, connected_pong::ConnectedPong,
     connection_request::ConnectionRequest, connection_request_accepted::ConnectionRequestAccepted,
-    decode, encode, incompatible_protocol_version::IncompatibleProtocolVersion, nack::Nack,
+    decode, encode, frame_set::FrameSet,
+    incompatible_protocol_version::IncompatibleProtocolVersion, nack::Nack,
     new_incoming_connection::NewIncomingConnection, open_connection_reply1::OpenConnectionReply1,
     open_connection_reply2::OpenConnectionReply2, open_connection_request1::OpenConnectionRequest1,
     open_connection_request2::OpenConnectionRequest2, unconnected_ping::UnconnectedPing,
-    unconnected_pong::UnconnectedPong, frame_set::FrameSet,
+    unconnected_pong::UnconnectedPong,
 };
 
 const UNCONNECTED_PING_DATA: [u8; 33] = [
@@ -311,5 +312,5 @@ fn raknet_packet() {
 
     let frameset = FrameSet::decode(&FRAME_SETPACKET_DATA).unwrap();
     let frameset_encoded = frameset.encode().unwrap();
-    debug_assert_eq!(&frameset_encoded,&FRAME_SETPACKET_DATA);
+    debug_assert_eq!(&frameset_encoded, &FRAME_SETPACKET_DATA);
 }

@@ -1,5 +1,5 @@
 use crate::packet::ACKQueue;
-use crate::raknet::{Ping, RaknetEvent, Server};
+use crate::raknet::{Client, Ping, RaknetEvent, Server};
 use crate::reader::{Endian, Reader};
 use crate::writer::Writer;
 use std::cmp::Ordering;
@@ -129,4 +129,79 @@ fn reader_writer() {
     assert_eq!(cursor.read_address().unwrap(), test_address);
     assert_eq!(cursor.read_magic().unwrap(), true);
     assert_eq!(cursor.read_string().cmp(test_string), Ordering::Equal);
+}
+
+#[tokio::test]
+async fn server_test() {
+    tokio::spawn(async move {
+        let local: SocketAddr = "127.0.0.1:19132".parse().expect("could not parse addr");
+        let mut server = Server::new(
+                local,
+            "MCPE;§5raknet rs;390;1.17.42;0;10;13253860892328930865;Bedrock level;Survival;1;19132;19133;".to_owned()
+            );
+        server.listen().await;
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            let events = server.recv().await.unwrap();
+            for event in events {
+                match event {
+                    RaknetEvent::Connected(addr, guid) => {
+                        println!("connected {} {}", addr, &guid)
+                    }
+                    RaknetEvent::Disconnected(addr, guid, _reason) => {
+                        println!("disconnected {} {}", addr, &guid)
+                    }
+                    RaknetEvent::Packet(packet) => {
+                        if packet.data[0] == 0x48 {
+                            let msg = String::from_utf8_lossy(&packet.data);
+                            if msg == "Hello Server!!" {
+                                server
+                                    .send_to(&packet.address, b"Hello Client!!")
+                                    .await
+                                    .unwrap();
+                            }
+                        } else if packet.data[0] == 0xff {
+                            server.disconnect(packet.address).await;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+    });
+
+    let mut remote = "127.0.0.1:19132".to_socket_addrs().unwrap();
+    let mut client = Client::new(remote.next().unwrap(), true);
+    client.listen().await;
+    client.connect().await;
+    loop {
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        let events = client.recv().await.unwrap();
+        let mut dissconnected = false;
+        for event in events {
+            match event {
+                RaknetEvent::Connected(addr, guid) => {
+                    println!("connected {} {}", addr, &guid);
+                    client.send(b"Hello Server!!").await.unwrap();
+                }
+                RaknetEvent::Disconnected(addr, guid, _reason) => {
+                    println!("disconnected {} {}", addr, &guid);
+                    dissconnected = true;
+                    break;
+                }
+                RaknetEvent::Packet(packet) => {
+                    if packet.data[0] == 0x48 {
+                        let msg = String::from_utf8_lossy(&packet.data);
+                        if msg == "Hello Client!!" {
+                            client.send(&[0xffu8; 4896]).await.unwrap();
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        if dissconnected {
+            break;
+        }
+    }
 }
