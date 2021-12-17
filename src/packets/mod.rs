@@ -1,4 +1,5 @@
 pub mod ack;
+pub mod already_connected;
 pub mod connected_ping;
 pub mod connected_pong;
 pub mod connection_request;

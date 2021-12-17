@@ -12,7 +12,8 @@ use crate::{
     connection::Connection,
     packet::RaknetPacket,
     packets::{
-        decode, encode, incompatible_protocol_version::IncompatibleProtocolVersion,
+        already_connected::AlreadyConnected, decode, encode,
+        incompatible_protocol_version::IncompatibleProtocolVersion,
         open_connection_reply1::OpenConnectionReply1, open_connection_reply2::OpenConnectionReply2,
         open_connection_request1::OpenConnectionRequest1,
         open_connection_request2::OpenConnectionRequest2, unconnected_ping::UnconnectedPing,
@@ -20,7 +21,7 @@ use crate::{
     },
 };
 
-const RAKNET_PROTOCOL_VERSION: u8 = 0xa;
+const RAKNET_PROTOCOL_VERSION: u8 = 0xA;
 
 #[derive(Clone, Copy)]
 pub enum DisconnectReason {
@@ -61,6 +62,7 @@ pub struct Server {
     pub title: Arc<Mutex<String>>,
     time: Instant,
     local_addr: SocketAddr,
+    connected_clients: Arc<Mutex<Vec<u64>>>,
 }
 
 impl Server {
@@ -72,6 +74,7 @@ impl Server {
             title: Arc::new(Mutex::new(title)),
             time: Instant::now(),
             local_addr: address,
+            connected_clients: Arc::new(Mutex::new(vec![])),
         }
     }
 
@@ -83,6 +86,7 @@ impl Server {
         ));
         let socket2 = self.socket.clone().expect("failed to clone Arc<UdpSocket>");
         let connections2 = self.connection.clone();
+        let connected_client = self.connected_clients.clone();
         let id = self.id;
         let motd = self.title.clone();
         let time = self.time;
@@ -162,6 +166,22 @@ impl Server {
                                     continue;
                                 }
                             };
+                            if connected_client.lock().await.contains(&p.guid) {
+                                let already_connected = AlreadyConnected::new(id);
+                                if let Ok(data) = encode::<AlreadyConnected>(already_connected) {
+                                    match socket2.send_to(&data, source).await {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            eprintln!("{}", e);
+                                            continue;
+                                        }
+                                    };
+                                } else {
+                                    eprintln!("failed to encode alreadyconnected");
+                                };
+                                continue;
+                            }
+
                             let ocreply2 = OpenConnectionReply2::new(id, source, p.mtu, false);
                             if let Ok(data) = encode::<OpenConnectionReply2>(ocreply2) {
                                 match socket2.send_to(&data, source).await {
@@ -175,6 +195,7 @@ impl Server {
                                     source,
                                     Connection::new(source, socket2.clone(), id, time, p.mtu),
                                 );
+                                connected_client.lock().await.push(p.guid);
                             } else {
                                 eprintln!("failed to encode openconnectionreply2");
                             };
@@ -352,6 +373,16 @@ impl Client {
                             "different server : {}, client : {}",
                             version.server_protocol, RAKNET_PROTOCOL_VERSION
                         );
+                    }
+                    AlreadyConnected::ID => {
+                        let _alredy_connected = match decode::<AlreadyConnected>(buff) {
+                            Ok(p) => p,
+                            Err(e) => {
+                                eprintln!("failed to decode alreadyconnected {}", e);
+                                continue;
+                            }
+                        };
+                        panic!("already connected");
                     }
                     _ => {
                         println!("unknown packet ID {}", buff[0]);

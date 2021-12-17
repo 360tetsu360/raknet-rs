@@ -1,12 +1,17 @@
-use crate::packets::{
-    ack::Ack, connected_ping::ConnectedPing, connected_pong::ConnectedPong,
-    connection_request::ConnectionRequest, connection_request_accepted::ConnectionRequestAccepted,
-    decode, encode, frame_set::FrameSet,
-    incompatible_protocol_version::IncompatibleProtocolVersion, nack::Nack,
-    new_incoming_connection::NewIncomingConnection, open_connection_reply1::OpenConnectionReply1,
-    open_connection_reply2::OpenConnectionReply2, open_connection_request1::OpenConnectionRequest1,
-    open_connection_request2::OpenConnectionRequest2, unconnected_ping::UnconnectedPing,
-    unconnected_pong::UnconnectedPong,
+use crate::{
+    packets::{
+        ack::Ack, already_connected::AlreadyConnected, connected_ping::ConnectedPing,
+        connected_pong::ConnectedPong, connection_request::ConnectionRequest,
+        connection_request_accepted::ConnectionRequestAccepted, decode, encode, frame::Frame,
+        frame_set::FrameSet, incompatible_protocol_version::IncompatibleProtocolVersion,
+        nack::Nack, new_incoming_connection::NewIncomingConnection,
+        open_connection_reply1::OpenConnectionReply1, open_connection_reply2::OpenConnectionReply2,
+        open_connection_request1::OpenConnectionRequest1,
+        open_connection_request2::OpenConnectionRequest2, unconnected_ping::UnconnectedPing,
+        unconnected_pong::UnconnectedPong, Reliability,
+    },
+    reader::Reader,
+    writer::Writer,
 };
 
 const UNCONNECTED_PING_DATA: [u8; 33] = [
@@ -232,6 +237,11 @@ const FRAME_SETPACKET_DATA: [u8; 212] = [
     0x19, 0x4f, 0xc3, 0xd2,
 ];
 
+const ALREADY_CONNECTED_DATA: [u8; 25] = [
+    0x12, 0x00, 0xff, 0xff, 0x00, 0xfe, 0xfe, 0xfe, 0xfe, 0xfd, 0xfd, 0xfd, 0xfd, 0x12, 0x34, 0x56,
+    0x78, 0x91, 0x1b, 0x13, 0x5d, 0x5f, 0x63, 0x9d, 0x1f,
+];
+
 #[test]
 fn raknet_packet() {
     let unconnected_ping = decode::<UnconnectedPing>(&UNCONNECTED_PING_DATA).unwrap();
@@ -314,6 +324,23 @@ fn raknet_packet() {
     let frameset_encoded = frameset.encode().unwrap();
     debug_assert_eq!(&frameset_encoded, &FRAME_SETPACKET_DATA);
 
-    let nack = Nack::new((0,1));
-    debug_assert_eq!(nack.get_all(),vec![0,1])
+    let already_connected = decode::<AlreadyConnected>(&ALREADY_CONNECTED_DATA).unwrap();
+    let already_connected_encoded = encode::<AlreadyConnected>(already_connected).unwrap();
+    debug_assert_eq!(&already_connected_encoded, &ALREADY_CONNECTED_DATA);
+
+    let nack = Nack::new((0, 1));
+    debug_assert_eq!(nack.get_all(), vec![0, 1]);
+
+    let _nack_max_eq_min = Nack::new((0, 0));
+
+    let _already_connected = AlreadyConnected::new(0);
+
+    let _incompatible_protocol_version = IncompatibleProtocolVersion::new(0x0, 0x0);
+
+    let sequenced_frame = Frame::new(Reliability::ReliableSequenced, b"test");
+    let mut frame_buff = Writer::new(vec![]);
+    sequenced_frame.encode(&mut frame_buff).unwrap();
+    let buff = frame_buff.get_raw_payload();
+    let mut reader = Reader::new(&buff);
+    let _sequenced_frame_decoded = Frame::decode(&mut reader).unwrap();
 }

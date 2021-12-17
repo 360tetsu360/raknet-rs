@@ -36,14 +36,5 @@ async fn client() {
 
 #[tokio::main]
 async fn main() {
-    for _ in 0..10 {
-        tokio::spawn(async move {
-            loop {
-                client().await;
-            }
-        });
-    }
-    loop {
-        client().await;
-    }
+    client().await;
 }
