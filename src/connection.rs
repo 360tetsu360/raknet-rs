@@ -356,6 +356,7 @@ impl Connection {
         self.order_index += 1;
         self.event_queue
             .push(RaknetEvent::Connected(self.address, self.guid));
+        self.send_ping();
     }
     fn handle_connectedping(&mut self, payload: &[u8]) {
         let p = match decode::<ConnectedPing>(payload) {

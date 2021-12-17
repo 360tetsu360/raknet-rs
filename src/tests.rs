@@ -4,31 +4,6 @@ use crate::reader::{Endian, Reader};
 use crate::writer::Writer;
 use std::cmp::Ordering;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
-#[tokio::test]
-async fn server() {
-    let remote_addr: SocketAddr = "127.0.0.1:19132".parse().expect("could not parse addr");
-    let mut server = Server::new(
-            remote_addr,
-        "MCPE;§5raknet rs;390;1.17.42;0;10;13253860892328930865;Bedrock level;Survival;1;19132;19133;".to_owned()
-        );
-    server.listen().await;
-    for _ in 0..0 {
-        tokio::time::sleep(std::time::Duration::from_millis(1)).await;
-        let events = server.recv().await.unwrap();
-        for event in events {
-            match event {
-                RaknetEvent::Connected(addr, guid) => {
-                    println!("connected {} {}", addr, &guid)
-                }
-                RaknetEvent::Disconnected(addr, guid, _reason) => {
-                    println!("disconnected {} {}", addr, &guid)
-                }
-                RaknetEvent::Packet(_packet) => {}
-                _ => {}
-            }
-        }
-    }
-}
 
 #[tokio::test]
 async fn ping() {
@@ -169,9 +144,12 @@ async fn server_test() {
             }
         }
     });
+    let pinger = Ping::new().await;
+    let remote = "127.0.0.1:19132".to_socket_addrs().unwrap().next().unwrap();
+    let pong = pinger.ping(remote).await.unwrap();
+    println!("{}", pong);
 
-    let mut remote = "127.0.0.1:19132".to_socket_addrs().unwrap();
-    let mut client = Client::new(remote.next().unwrap(), true);
+    let mut client = Client::new(remote, true);
     client.listen().await;
     client.connect().await;
     loop {
