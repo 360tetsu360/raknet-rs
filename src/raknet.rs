@@ -188,7 +188,8 @@ impl Server {
                         .await
                         .get_mut(&source)
                         .unwrap()
-                        .handle(&v[..size]).await;
+                        .handle(&v[..size])
+                        .await;
                 }
             }
         });

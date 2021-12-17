@@ -146,7 +146,7 @@ impl Connection {
         if self.dissconnected {
             return;
         }
-        let nack = Nack::new((packet,packet));
+        let nack = Nack::new((packet, packet));
         let buff = match encode::<Nack>(nack) {
             Ok(buff) => buff,
             Err(e) => {

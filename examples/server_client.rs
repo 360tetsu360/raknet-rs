@@ -21,10 +21,7 @@ async fn server() {
                     println!("disconnected {} {}", addr, &guid)
                 }
                 RaknetEvent::Packet(packet) => {
-                    server
-                    .send_to(&packet.address, &packet.data)
-                    .await
-                    .unwrap();
+                    server.send_to(&packet.address, &packet.data).await.unwrap();
                 }
                 _ => {}
             }
