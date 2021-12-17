@@ -78,15 +78,15 @@ impl Frame {
         packet_length >>= 3;
 
         if packet.reliability.reliable() {
-            packet.message_index = cursor.read_u24le(Endian::Little)?;
+            packet.message_index = cursor.read_u24(Endian::Little)?;
         }
 
         if packet.reliability.sequenced() {
-            packet.sequence_index = cursor.read_u24le(Endian::Little)?;
+            packet.sequence_index = cursor.read_u24(Endian::Little)?;
         }
 
         if packet.reliability.sequenced_or_ordered() {
-            packet.order_index = cursor.read_u24le(Endian::Little)?;
+            packet.order_index = cursor.read_u24(Endian::Little)?;
             cursor.next(1);
         }
 
@@ -110,13 +110,13 @@ impl Frame {
         cursor.write_u8(header)?;
         cursor.write_u16((self.data.len() * 8) as u16, Endian::Big)?;
         if self.reliability.reliable() {
-            cursor.write_u24le(self.message_index, Endian::Little)?;
+            cursor.write_u24(self.message_index, Endian::Little)?;
         }
         if self.reliability.sequenced() {
-            cursor.write_u24le(self.sequence_index, Endian::Little)?;
+            cursor.write_u24(self.sequence_index, Endian::Little)?;
         }
         if self.reliability.sequenced_or_ordered() {
-            cursor.write_u24le(self.order_index, Endian::Little)?;
+            cursor.write_u24(self.order_index, Endian::Little)?;
             cursor.write_u8(0)?;
         }
         if self.split {

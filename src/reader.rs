@@ -63,7 +63,7 @@ impl<'a> Reader<'a> {
         }
     }
 
-    pub fn read_u24le(&mut self, n: Endian) -> Result<u32> {
+    pub fn read_u24(&mut self, n: Endian) -> Result<u32> {
         match n {
             Endian::Big => self.cursor.read_u24::<BigEndian>(),
             Endian::Little => self.cursor.read_u24::<LittleEndian>(),

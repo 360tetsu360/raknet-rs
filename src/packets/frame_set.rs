@@ -19,7 +19,7 @@ impl FrameSet {
         let mut cursor = Reader::new(payload);
         let mut frame_set = Self {
             header: cursor.read_u8()?,
-            sequence_number: cursor.read_u24le(Endian::Little)?,
+            sequence_number: cursor.read_u24(Endian::Little)?,
             datas: vec![],
         };
         while cursor.pos() < size as u64 {
@@ -31,7 +31,7 @@ impl FrameSet {
     pub fn encode(&self) -> Result<Vec<u8>> {
         let mut cursor = Writer::new(vec![]);
         cursor.write_u8(self.header)?;
-        cursor.write_u24le(self.sequence_number, Endian::Little)?;
+        cursor.write_u24(self.sequence_number, Endian::Little)?;
         for frame in &self.datas {
             frame.encode(&mut cursor)?;
         }

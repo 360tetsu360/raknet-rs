@@ -42,9 +42,9 @@ impl Packet for Nack {
         let mut cursor = Writer::new(vec![]);
         cursor.write_u16(self.record_count, Endian::Big)?;
         cursor.write_u8(self.max_equals_min as u8)?;
-        cursor.write_u24le(self.sequences.0, Endian::Little)?;
+        cursor.write_u24(self.sequences.0, Endian::Little)?;
         if !self.max_equals_min {
-            cursor.write_u24le(self.sequences.1, Endian::Little)?;
+            cursor.write_u24(self.sequences.1, Endian::Little)?;
         }
         Ok(cursor.get_raw_payload())
     }
@@ -53,11 +53,11 @@ impl Packet for Nack {
         let record_count = cursor.read_u16(Endian::Big)?;
         let max_equals_min = cursor.read_u8()? != 0;
         let sequences = {
-            let sequence = cursor.read_u24le(Endian::Little)?;
+            let sequence = cursor.read_u24(Endian::Little)?;
             if max_equals_min {
                 (sequence, sequence)
             } else {
-                let sequence_max = cursor.read_u24le(Endian::Little)?;
+                let sequence_max = cursor.read_u24(Endian::Little)?;
                 (sequence, sequence_max)
             }
         };
