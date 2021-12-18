@@ -1,4 +1,4 @@
-use byteorder::{BigEndian, LittleEndian, NativeEndian, ReadBytesExt};
+use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use std::{
     io::{Cursor, Read, Result},
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
@@ -8,7 +8,6 @@ use std::{
 pub enum Endian {
     Big,
     Little,
-    Native,
 }
 
 #[derive(Clone)]
@@ -36,7 +35,6 @@ impl<'a> Reader<'a> {
         match n {
             Endian::Big => self.cursor.read_u16::<BigEndian>(),
             Endian::Little => self.cursor.read_u16::<LittleEndian>(),
-            Endian::Native => self.cursor.read_u16::<NativeEndian>(),
         }
     }
 
@@ -44,7 +42,6 @@ impl<'a> Reader<'a> {
         match n {
             Endian::Big => self.cursor.read_u32::<BigEndian>(),
             Endian::Little => self.cursor.read_u32::<LittleEndian>(),
-            Endian::Native => self.cursor.read_u32::<NativeEndian>(),
         }
     }
 
@@ -52,14 +49,12 @@ impl<'a> Reader<'a> {
         match n {
             Endian::Big => self.cursor.read_u64::<BigEndian>(),
             Endian::Little => self.cursor.read_u64::<LittleEndian>(),
-            Endian::Native => self.cursor.read_u64::<NativeEndian>(),
         }
     }
     pub fn read_i64(&mut self, n: Endian) -> Result<i64> {
         match n {
             Endian::Big => self.cursor.read_i64::<BigEndian>(),
             Endian::Little => self.cursor.read_i64::<LittleEndian>(),
-            Endian::Native => self.cursor.read_i64::<NativeEndian>(),
         }
     }
 
@@ -67,7 +62,6 @@ impl<'a> Reader<'a> {
         match n {
             Endian::Big => self.cursor.read_u24::<BigEndian>(),
             Endian::Little => self.cursor.read_u24::<LittleEndian>(),
-            Endian::Native => self.cursor.read_u24::<NativeEndian>(),
         }
     }
 

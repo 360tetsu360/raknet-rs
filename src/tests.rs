@@ -60,19 +60,14 @@ fn reader_writer() {
     cursor.write_u8(TEST_U8).unwrap();
     cursor.write_u16(TEST_U16, Endian::Big).unwrap();
     cursor.write_u16(TEST_U16, Endian::Little).unwrap();
-    cursor.write_u16(TEST_U16, Endian::Native).unwrap();
     cursor.write_u24(TEST_U24, Endian::Big).unwrap();
     cursor.write_u24(TEST_U24, Endian::Little).unwrap();
-    cursor.write_u24(TEST_U24, Endian::Native).unwrap();
     cursor.write_u32(TEST_U32, Endian::Big).unwrap();
     cursor.write_u32(TEST_U32, Endian::Little).unwrap();
-    cursor.write_u32(TEST_U32, Endian::Native).unwrap();
     cursor.write_u64(TEST_U64, Endian::Big).unwrap();
     cursor.write_u64(TEST_U64, Endian::Little).unwrap();
-    cursor.write_u64(TEST_U64, Endian::Native).unwrap();
     cursor.write_i64(TEST_I64, Endian::Big).unwrap();
     cursor.write_i64(TEST_I64, Endian::Little).unwrap();
-    cursor.write_i64(TEST_I64, Endian::Native).unwrap();
 
     cursor.write_address(test_address).unwrap();
     cursor.write_magic().unwrap();
@@ -87,19 +82,14 @@ fn reader_writer() {
     assert_eq!(cursor.read_u8().unwrap(), TEST_U8);
     assert_eq!(cursor.read_u16(Endian::Big).unwrap(), TEST_U16);
     assert_eq!(cursor.read_u16(Endian::Little).unwrap(), TEST_U16);
-    assert_eq!(cursor.read_u16(Endian::Native).unwrap(), TEST_U16);
     assert_eq!(cursor.read_u24(Endian::Big).unwrap(), TEST_U24);
     assert_eq!(cursor.read_u24(Endian::Little).unwrap(), TEST_U24);
-    assert_eq!(cursor.read_u24(Endian::Native).unwrap(), TEST_U24);
     assert_eq!(cursor.read_u32(Endian::Big).unwrap(), TEST_U32);
     assert_eq!(cursor.read_u32(Endian::Little).unwrap(), TEST_U32);
-    assert_eq!(cursor.read_u32(Endian::Native).unwrap(), TEST_U32);
     assert_eq!(cursor.read_u64(Endian::Big).unwrap(), TEST_U64);
     assert_eq!(cursor.read_u64(Endian::Little).unwrap(), TEST_U64);
-    assert_eq!(cursor.read_u64(Endian::Native).unwrap(), TEST_U64);
     assert_eq!(cursor.read_i64(Endian::Big).unwrap(), TEST_I64);
     assert_eq!(cursor.read_i64(Endian::Little).unwrap(), TEST_I64);
-    assert_eq!(cursor.read_i64(Endian::Native).unwrap(), TEST_I64);
 
     assert_eq!(cursor.read_address().unwrap(), test_address);
     assert_eq!(cursor.read_magic().unwrap(), true);
