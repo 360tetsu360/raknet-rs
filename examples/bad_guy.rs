@@ -25,7 +25,10 @@ async fn client() {
                 RaknetEvent::Packet(_packet) => {
                     client.disconnect().await;
                 }
-                _ => {}
+                RaknetEvent::Error(addr, error) => {
+                    eprintln!("{} {}", addr, error);
+                    disconnected = true;
+                }
             }
         }
         if disconnected {
@@ -36,5 +39,8 @@ async fn client() {
 
 #[tokio::main]
 async fn main() {
+    tokio::spawn(async move {
+        client().await;
+    });
     client().await;
 }

@@ -1,10 +1,6 @@
 use rand::random;
 use std::{
-    collections::HashMap,
-    io::{Error, Result},
-    net::SocketAddr,
-    sync::Arc,
-    time::Instant,
+    collections::HashMap, fmt::Display, io::Result, net::SocketAddr, sync::Arc, time::Instant,
 };
 use tokio::{net::UdpSocket, sync::Mutex};
 
@@ -32,14 +28,7 @@ pub enum RaknetEvent {
     Packet(RaknetPacket),
     Connected(SocketAddr, u64),
     Disconnected(SocketAddr, u64, DisconnectReason),
-    Error(SocketAddr, Error),
-}
-
-trait ServerHandler {
-    fn on_connected(&mut self, address: SocketAddr);
-    fn on_message(&mut self, address: SocketAddr, packet: RaknetPacket);
-    fn on_disconnected(&mut self, address: SocketAddr);
-    fn on_error(&mut self, e: Error);
+    Error(SocketAddr, RaknetError),
 }
 
 impl Clone for RaknetEvent {
@@ -48,12 +37,29 @@ impl Clone for RaknetEvent {
             RaknetEvent::Packet(p) => RaknetEvent::Packet(p.clone()),
             RaknetEvent::Connected(p, e) => RaknetEvent::Connected(*p, *e),
             RaknetEvent::Disconnected(p, e, r) => RaknetEvent::Disconnected(*p, *e, *r),
-            RaknetEvent::Error(p, err) => {
-                RaknetEvent::Error(*p, std::io::Error::new(err.kind(), err.to_string()))
-            }
+            RaknetEvent::Error(p, err) => RaknetEvent::Error(*p, err.clone()),
         }
     }
 }
+
+#[derive(Debug, Clone)]
+pub enum RaknetError {
+    IncompatibleProtocolVersion(u8, u8), //Server,Client
+    AlreadyConnected(SocketAddr),
+}
+
+impl Display for RaknetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::IncompatibleProtocolVersion(server, client) => {
+                write!(f, "Different Protocol Version: {} {}", server, client)
+            }
+            Self::AlreadyConnected(s) => write!(f, "AlreadyConnected: {}", s),
+        }
+    }
+}
+
+impl std::error::Error for RaknetError {}
 
 pub struct Server {
     pub socket: Option<Arc<UdpSocket>>,
@@ -272,6 +278,7 @@ pub struct Client {
     pub socket: Option<Arc<UdpSocket>>,
     remote: SocketAddr,
     connection: Arc<Mutex<Option<Connection>>>,
+    event: Arc<Mutex<Vec<RaknetEvent>>>,
     guid: u64,
     mtu: u16,
     time: Instant,
@@ -291,6 +298,7 @@ impl Client {
             socket: None,
             remote: remote_address,
             connection: Arc::new(Mutex::new(None)),
+            event: Arc::new(Mutex::new(vec![])),
             guid: random::<u64>(),
             mtu: 1492,
             time: Instant::now(),
@@ -306,6 +314,7 @@ impl Client {
         ));
         let socket2 = self.socket.clone().expect("failed to clone Arc<UdpSocket>");
         let connections2 = self.connection.clone();
+        let event = self.event.clone();
         let guid = self.guid;
         let mtu = self.mtu;
         let timer = self.time;
@@ -369,12 +378,16 @@ impl Client {
                                 continue;
                             }
                         };
-                        panic!(
-                            "different server : {}, client : {}",
-                            version.server_protocol, RAKNET_PROTOCOL_VERSION
-                        );
+                        event.lock().await.push(RaknetEvent::Error(
+                            remote,
+                            RaknetError::IncompatibleProtocolVersion(
+                                version.server_protocol,
+                                RAKNET_PROTOCOL_VERSION,
+                            ),
+                        ));
                     }
                     AlreadyConnected::ID => {
+                        println!("a");
                         let _alredy_connected = match decode::<AlreadyConnected>(buff) {
                             Ok(p) => p,
                             Err(e) => {
@@ -382,7 +395,10 @@ impl Client {
                                 continue;
                             }
                         };
-                        panic!("already connected");
+                        event.lock().await.push(RaknetEvent::Error(
+                            remote,
+                            RaknetError::AlreadyConnected(remote),
+                        ));
                     }
                     _ => {
                         println!("unknown packet ID {}", buff[0]);
@@ -414,11 +430,10 @@ impl Client {
         Ok(())
     }
     pub async fn recv(&self) -> Result<Vec<RaknetEvent>> {
-        let mut events: Vec<RaknetEvent> = vec![];
+        let mut events: Vec<RaknetEvent> = self.event.lock().await.clone();
+        self.event.lock().await.clear();
         if let Some(conn) = self.connection.lock().await.as_mut() {
-            for event in conn.event_queue.clone() {
-                events.push(event);
-            }
+            events.append(&mut conn.event_queue.clone());
             conn.update().await;
         }
         Ok(events)

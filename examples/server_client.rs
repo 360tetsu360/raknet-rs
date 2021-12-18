@@ -23,7 +23,9 @@ async fn server() {
                 RaknetEvent::Packet(packet) => {
                     server.send_to(&packet.address, &packet.data).await.unwrap();
                 }
-                _ => {}
+                RaknetEvent::Error(addr, error) => {
+                    eprintln!("{} {}", addr, error);
+                }
             }
         }
     }
@@ -37,7 +39,7 @@ async fn client() {
     loop {
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         let events = client.recv().await.unwrap();
-        let mut dissconnected = false;
+        let mut disconnected = false;
         for event in events {
             match event {
                 RaknetEvent::Connected(addr, guid) => {
@@ -47,7 +49,7 @@ async fn client() {
                 }
                 RaknetEvent::Disconnected(addr, guid, _reason) => {
                     println!("disconnected {} {}", addr, &guid);
-                    dissconnected = true;
+                    disconnected = true;
                     break;
                 }
                 RaknetEvent::Packet(packet) => {
@@ -55,10 +57,13 @@ async fn client() {
                     println!("{}", &msg);
                     client.disconnect().await;
                 }
-                _ => {}
+                RaknetEvent::Error(addr, error) => {
+                    eprintln!("{} {}", addr, error);
+                    disconnected = true;
+                }
             }
         }
-        if dissconnected {
+        if disconnected {
             break;
         }
     }
