@@ -1,11 +1,9 @@
 mod connection;
-mod packet;
+pub mod packet;
 mod packetqueue;
 mod packets;
 pub mod raknet;
-mod reader;
+pub use self::raknet::*;
+pub mod reader;
 mod recievedqueue;
-mod writer;
-
-#[cfg(test)]
-mod tests;
+pub mod writer;
