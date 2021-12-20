@@ -1,4 +1,5 @@
-use raknet::packets::*,
+use raknet::{
+    packets::*,
     reader::Reader,
     writer::Writer,
 };
