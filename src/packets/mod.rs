@@ -1,21 +1,41 @@
-pub mod ack;
-pub mod already_connected;
-pub mod connected_ping;
-pub mod connected_pong;
-pub mod connection_request;
-pub mod connection_request_accepted;
-pub mod disconnected;
-pub mod frame;
-pub mod frame_set;
-pub mod incompatible_protocol_version;
-pub mod nack;
-pub mod new_incoming_connection;
-pub mod open_connection_reply1;
-pub mod open_connection_reply2;
-pub mod open_connection_request1;
-pub mod open_connection_request2;
-pub mod unconnected_ping;
-pub mod unconnected_pong;
+pub(crate) mod ack;
+pub(crate) mod already_connected;
+pub(crate) mod connected_ping;
+pub(crate) mod connected_pong;
+pub(crate) mod connection_request;
+pub(crate) mod connection_request_accepted;
+pub(crate) mod disconnected;
+pub(crate) mod frame;
+pub(crate) mod frame_set;
+pub(crate) mod incompatible_protocol_version;
+pub(crate) mod nack;
+pub(crate) mod new_incoming_connection;
+pub(crate) mod open_connection_reply1;
+pub(crate) mod open_connection_reply2;
+pub(crate) mod open_connection_request1;
+pub(crate) mod open_connection_request2;
+pub(crate) mod unconnected_ping;
+pub(crate) mod unconnected_pong;
+
+pub use ack::*;
+pub use already_connected::*;
+pub use connected_ping::*;
+pub use connected_pong::*;
+pub use connection_request::*;
+pub use connection_request_accepted::*;
+pub use disconnected::*;
+pub use frame::*;
+pub use frame_set::*;
+pub use incompatible_protocol_version::*;
+pub use nack::*;
+pub use new_incoming_connection::*;
+pub use open_connection_reply1::*;
+pub use open_connection_reply2::*;
+pub use open_connection_request1::*;
+pub use open_connection_request2::*;
+pub use unconnected_ping::*;
+pub use unconnected_pong::*;
+
 use std::io::{Error, ErrorKind};
 #[derive(Clone)]
 pub enum Reliability {
@@ -30,7 +50,7 @@ pub enum Reliability {
 }
 
 impl Reliability {
-    pub fn new(byte: u8) -> Result<Self> {
+    pub(crate) fn new(byte: u8) -> Result<Self> {
         match byte {
             0x0 => Ok(Self::Unreliable),
             0x1 => Ok(Self::UnreliableSequenced),
@@ -46,7 +66,7 @@ impl Reliability {
             )),
         }
     }
-    pub fn to_byte(&self) -> u8 {
+    pub(crate) fn to_byte(&self) -> u8 {
         match self {
             Self::Unreliable => 0x0,
             Self::UnreliableSequenced => 0x1,
@@ -59,14 +79,14 @@ impl Reliability {
         }
     }
 
-    pub fn reliable(&self) -> bool {
+    pub(crate) fn reliable(&self) -> bool {
         matches!(
             self,
             Reliability::Reliable | Reliability::ReliableOrdered | Reliability::ReliableSequenced
         )
     }
 
-    pub fn sequenced_or_ordered(&self) -> bool {
+    pub(crate) fn sequenced_or_ordered(&self) -> bool {
         matches!(
             self,
             Reliability::UnreliableSequenced
@@ -75,7 +95,7 @@ impl Reliability {
         )
     }
 
-    pub fn sequenced(&self) -> bool {
+    pub(crate) fn sequenced(&self) -> bool {
         matches!(
             self,
             Reliability::UnreliableSequenced | Reliability::ReliableSequenced
@@ -83,12 +103,9 @@ impl Reliability {
     }
 }
 
-#[cfg(test)]
-mod test;
-
 use std::io::Result;
 
-pub(crate) trait Packet: Clone {
+pub trait Packet: Clone {
     const ID: u8;
     fn read(buf: &[u8]) -> Result<Self>
     where
@@ -96,10 +113,10 @@ pub(crate) trait Packet: Clone {
     fn write(&self) -> Result<Vec<u8>>;
 }
 
-pub(crate) fn encode<T: Packet>(packet: T) -> Result<Vec<u8>> {
+pub fn encode<T: Packet>(packet: T) -> Result<Vec<u8>> {
     Ok([&[T::ID], &*packet.write().unwrap()].concat())
 }
 
-pub(crate) fn decode<T: Packet>(buf: &[u8]) -> Result<T> {
+pub fn decode<T: Packet>(buf: &[u8]) -> Result<T> {
     T::read(&buf[1..])
 }

@@ -1,8 +1,8 @@
 mod connection;
 pub mod packet;
 mod packetqueue;
-mod packets;
-pub mod raknet;
+pub mod packets;
+pub(crate) mod raknet;
 pub use self::raknet::*;
 pub mod reader;
 mod recievedqueue;

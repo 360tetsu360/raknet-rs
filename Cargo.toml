@@ -7,5 +7,5 @@ edition = "2018"
 
 [dependencies]
 rand = {version = "0.6", features = ["std"]}
-tokio = {version = "*", features = ["rt","net","sync","macros","time","rt-multi-thread"]}
+tokio = {version = "*", features = ["full"]}
 byteorder = "1"
