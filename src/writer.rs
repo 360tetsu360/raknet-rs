@@ -18,8 +18,7 @@ impl Writer {
         }
     }
     pub fn write(&mut self, v: &[u8]) -> Result<()> {
-        let _ = self.cursor.write(v)?;
-        Ok(())
+        self.cursor.write_all(v)
     }
 
     pub fn write_u8(&mut self, v: u8) -> Result<()> {
