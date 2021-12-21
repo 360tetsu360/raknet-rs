@@ -23,8 +23,8 @@ async fn client() {
                 RaknetEvent::Packet(packet) => {
                     match packet.data[0] {
                         0xfe => {
-                            //do something here
-                        }
+                            println!("{:?}",&packet.data[1..])
+                        },
                         _ => {}
                     }
                 }
