@@ -1,4 +1,4 @@
-use raknet::raknet::{RaknetEvent, Server};
+use raknet::{RaknetEvent, Server};
 use std::net::SocketAddr;
 #[tokio::main]
 async fn main() {

@@ -1,4 +1,4 @@
-use raknet::raknet::{Client, RaknetEvent};
+use raknet::{Client, RaknetEvent};
 use std::net::ToSocketAddrs;
 
 async fn client() {

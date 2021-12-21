@@ -1,4 +1,4 @@
-use raknet::raknet::{Client, RaknetEvent, Server};
+use raknet::{Client, RaknetEvent, Server};
 use std::io::stdin;
 use std::net::{SocketAddr, ToSocketAddrs};
 

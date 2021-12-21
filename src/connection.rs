@@ -2,7 +2,7 @@ use crate::{
     packet::{ACKQueue, RaknetPacket},
     packetqueue::PacketQueue,
     packets::{
-        ack::Ack, connected_ping::ConnectedPing, connected_pong::ConnectedPong,
+        Ack, connected_ping::ConnectedPing, connected_pong::ConnectedPong,
         connection_request::ConnectionRequest,
         connection_request_accepted::ConnectionRequestAccepted, decode, disconnected::Disconnected,
         encode, frame::Frame, frame_set::FrameSet, nack::Nack,

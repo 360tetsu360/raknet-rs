@@ -7,14 +7,7 @@ use tokio::{net::UdpSocket, sync::Mutex};
 use crate::{
     connection::Connection,
     packet::RaknetPacket,
-    packets::{
-        already_connected::AlreadyConnected, decode, encode,
-        incompatible_protocol_version::IncompatibleProtocolVersion,
-        open_connection_reply1::OpenConnectionReply1, open_connection_reply2::OpenConnectionReply2,
-        open_connection_request1::OpenConnectionRequest1,
-        open_connection_request2::OpenConnectionRequest2, unconnected_ping::UnconnectedPing,
-        unconnected_pong::UnconnectedPong, Packet,
-    },
+    packets::*,
 };
 
 const RAKNET_PROTOCOL_VERSION: u8 = 0xA;
@@ -401,7 +394,7 @@ impl Client {
                         ));
                     }
                     _ => {
-                        println!("unknown packet ID {}", buff[0]);
+                        println!("unknown packet ID {:x}", buff[0]);
                     }
                 }
             }

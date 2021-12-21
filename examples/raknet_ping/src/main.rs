@@ -1,4 +1,4 @@
-use raknet::raknet::Ping;
+use raknet::Ping;
 use std::net::{SocketAddr, ToSocketAddrs};
 
 #[tokio::main]
