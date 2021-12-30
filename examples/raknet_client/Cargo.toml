@@ -6,4 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+<<<<<<< HEAD
 raknet = { git = git://github.com/BetterMC/raknet-rs }
+=======
+raknet = { git = "git://github.com/BetterMC/raknet-rs" }
+>>>>>>> e63a740ab12bb6c97ba31a4772516eb32e179def
