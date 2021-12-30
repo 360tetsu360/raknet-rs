@@ -127,3 +127,24 @@ impl PacketQueue {
         ret
     }
 }
+
+
+#[cfg(test)]
+mod packet_q_test {
+    use crate::packets::{Frame, Reliability};
+
+    use super::PacketQueue;
+
+    #[test]
+    fn packet_q() {
+        let time = std::time::Instant::now();
+        let mut packetq = PacketQueue::new(1500, time.elapsed().as_millis());
+        let frame = Frame::new(Reliability::Reliable, &[0u8;100]);
+        packetq.add_frame(frame);
+        packetq.get_packet(time.elapsed().as_millis());
+
+        let time_elap = std::time::Duration::from_millis(1200);
+
+        std::thread::sleep(time_elap);
+    }
+}

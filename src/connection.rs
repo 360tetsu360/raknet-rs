@@ -5,7 +5,7 @@ use crate::{
     raknet::{DisconnectReason, RaknetEvent},
     recievedqueue::RecievdQueue,
 };
-use std::{convert::TryInto, net::SocketAddr, sync::Arc, time::Instant};
+use std::{convert::TryInto, net::SocketAddr, sync::Arc, time::{Instant,SystemTime, UNIX_EPOCH}};
 use tokio::net::UdpSocket;
 const DATAGRAM_FLAG: u8 = 0x80;
 
@@ -398,12 +398,9 @@ impl Connection {
     }
 
     pub fn time_stamp(&mut self) -> i64 {
-        match self.timer.elapsed().as_millis().try_into() {
+        match SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis().try_into() {
             Ok(p) => p,
-            Err(e) => {
-                eprintln!("{}", e);
-                0
-            }
+            Err(_) => 0,
         }
     }
 }
