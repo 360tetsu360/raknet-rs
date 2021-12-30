@@ -318,7 +318,6 @@ impl Connection {
             }
         };
         let frame = Frame::new(Reliability::ReliableOrdered, &buff);
-        println!("send accept");
         self.send(frame);
         self.message_index += 1;
         self.order_index += 1;
