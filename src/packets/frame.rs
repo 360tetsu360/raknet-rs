@@ -37,7 +37,7 @@ impl Frame {
             data: data.to_vec(),
         }
     }
-    pub fn len(&self) -> usize {
+    pub fn length(&self) -> usize {
         let mut ret = 0;
         ret += 1;
         ret += 2;

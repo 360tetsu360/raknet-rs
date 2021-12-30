@@ -8,17 +8,18 @@ const CONTINUOUS_SEND_FLAG: u8 = 0x8;
 
 pub struct PacketQueue {
     pub queue: HashMap<u32, FrameSet>,
-    pub time_passed: HashMap<u32, (u64, bool)>,
+    pub time_passed: HashMap<u32, (u128, bool)>,
     pub max: u32,
     send_min: u32,
     resend: Vec<u32>,
     set_size: usize,
     set_queue: Vec<Frame>,
     mtu: u16,
+    last_tick: u128,
 }
 
 impl PacketQueue {
-    pub fn new(mtu: u16) -> Self {
+    pub fn new(mtu: u16, last_tick: u128) -> Self {
         Self {
             queue: HashMap::new(),
             time_passed: HashMap::new(),
@@ -28,11 +29,12 @@ impl PacketQueue {
             set_size: 0,
             set_queue: vec![],
             mtu,
+            last_tick,
         }
     }
     pub fn add_frame(&mut self, frame: Frame) {
-        if self.set_size + frame.len() < (self.mtu - 42) as usize && !frame.split {
-            self.set_size += frame.len();
+        if self.set_size + frame.length() < (self.mtu - 42) as usize && !frame.split {
+            self.set_size += frame.length();
             self.set_queue.push(frame);
         } else {
             let set = FrameSet {
@@ -63,7 +65,7 @@ impl PacketQueue {
             self.time_passed.remove(&sequence);
         }
     }
-    pub fn tick(&mut self, time: u64) {
+    pub fn tick(&mut self, time: u128) {
         if !self.set_queue.is_empty() {
             let set = FrameSet {
                 header: 0x80 | NEEDS_B_AND_AS_FLAG,
@@ -74,15 +76,18 @@ impl PacketQueue {
             self.set_queue.clear();
             self.set_size = 0;
         }
+        let time_passed = time - self.last_tick;
         for mut elem in self.time_passed.iter_mut() {
             if elem.1 .1 {
-                if (time - elem.1 .0) > 1000 {
+                elem.1 .0 += time_passed;
+                if elem.1 .0 > 1000 {
                     //about 1000ms?
                     self.resend.push(*elem.0)
                 }
                 elem.1 .0 = time;
             }
         }
+        self.last_tick = time;
     }
     pub fn readd(&mut self) {
         for resend in self.resend.iter() {
@@ -109,7 +114,7 @@ impl PacketQueue {
             self.max += 1;
         }
     }
-    pub fn get_packet(&mut self, time: u64) -> Vec<&FrameSet> {
+    pub fn get_packet(&mut self, time: u128) -> Vec<&FrameSet> {
         //get send able packets and start timer
         self.tick(time);
         self.readd();

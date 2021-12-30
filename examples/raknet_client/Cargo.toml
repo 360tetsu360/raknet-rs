@@ -1,8 +1,0 @@
-[package]
-name = "raknet_server"
-version = "1.0.0"
-edition = "2018"
-
-[dependencies]
-raknet = { git = "git://github.com/BetterMC/raknet-rs" }
-tokio = "*"

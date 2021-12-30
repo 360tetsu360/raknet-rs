@@ -39,6 +39,7 @@ impl Connection {
         timer: Instant,
         mtu: u16,
     ) -> Self {
+        let time = timer.elapsed().as_millis();
         Self {
             address,
             socket,
@@ -46,14 +47,14 @@ impl Connection {
             guid,
             mtu,
             timer,
-            last_recieve: timer.elapsed().as_millis(),
+            last_recieve: time,
             ack_queue: ACKQueue::new(),
-            packet_queue: PacketQueue::new(mtu),
+            packet_queue: PacketQueue::new(mtu, time),
             message_index: 0,
             order_index: 0,
             split_id: 0,
             recieved: RecievdQueue::new(),
-            last_ping: timer.elapsed().as_millis(),
+            last_ping: time,
             dissconnected: false,
         }
     }
@@ -66,7 +67,7 @@ impl Connection {
             self.disconnect();
             self.disconnected(DisconnectReason::Timeout);
         }
-        if time - self.last_ping > 5 * 1000 {
+        if (time - self.last_ping) > 5 * 1000 {
             // 1/s
             self.last_ping = time;
             self.send_ping();
@@ -276,7 +277,7 @@ impl Connection {
     }
     async fn flush_queue(&mut self) {
         let mut error = false;
-        let time = self.timer.elapsed().as_millis() as u64;
+        let time = self.timer.elapsed().as_millis();
         for send_able in self.packet_queue.get_packet(time).clone() {
             let frame_set = match send_able.encode() {
                 Ok(buff) => buff,
@@ -317,6 +318,7 @@ impl Connection {
             }
         };
         let frame = Frame::new(Reliability::ReliableOrdered, &buff);
+        println!("send accept");
         self.send(frame);
         self.message_index += 1;
         self.order_index += 1;

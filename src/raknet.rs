@@ -4,11 +4,7 @@ use std::{
 };
 use tokio::{net::UdpSocket, sync::Mutex};
 
-use crate::{
-    connection::Connection,
-    packet::RaknetPacket,
-    packets::*,
-};
+use crate::{connection::Connection, packet::RaknetPacket, packets::*};
 
 const RAKNET_PROTOCOL_VERSION: u8 = 0xA;
 

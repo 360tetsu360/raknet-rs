@@ -1,7 +1,7 @@
 use raknet::packet::ACKQueue;
-use raknet::{Client, Ping, RaknetEvent, Server};
 use raknet::reader::{Endian, Reader};
 use raknet::writer::Writer;
+use raknet::{Client, Ping, RaknetEvent, Server};
 use std::cmp::Ordering;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 

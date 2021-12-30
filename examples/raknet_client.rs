@@ -3,7 +3,6 @@ use std::net::ToSocketAddrs;
 
 async fn client() {
     let mut remote = "127.0.0.1:19132".to_socket_addrs().unwrap();
-    //let remote: SocketAddr = "hivebedrock.network".parse().expect("could not parse addr");
     let mut client = Client::new(remote.next().unwrap(), true);
     client.listen().await;
     client.connect().await;
@@ -15,16 +14,18 @@ async fn client() {
             match event {
                 RaknetEvent::Connected(addr, guid) => {
                     println!("connected {} {}", addr, &guid);
-                    client.send(&[0xffu8; 4096]).await.unwrap();
                 }
                 RaknetEvent::Disconnected(addr, guid, _reason) => {
                     println!("disconnected {} {}", addr, &guid);
                     disconnected = true;
                     break;
                 }
-                RaknetEvent::Packet(_packet) => {
-                    client.disconnect().await;
-                }
+                RaknetEvent::Packet(packet) => match packet.data[0] {
+                    0xfe => {
+                        println!("{:?}", &packet.data[1..])
+                    }
+                    _ => {}
+                },
                 RaknetEvent::Error(addr, error) => {
                     eprintln!("{} {}", addr, error);
                     disconnected = true;
@@ -39,8 +40,5 @@ async fn client() {
 
 #[tokio::main]
 async fn main() {
-    tokio::spawn(async move {
-        client().await;
-    });
     client().await;
 }
