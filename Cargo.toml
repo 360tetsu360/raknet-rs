@@ -8,4 +8,5 @@ edition = "2018"
 [dependencies]
 rand = {version = "0.6", features = ["std"]}
 tokio = {version = "*", features = ["full"]}
-byteorder = "1"
+tokio-byteorder = "0.3.0"
+async-trait = "0.1.52"

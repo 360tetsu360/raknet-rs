@@ -18,19 +18,22 @@ impl ConnectedPong {
     }
 }
 
+use async_trait::async_trait;
+
+#[async_trait]
 impl Packet for ConnectedPong {
     const ID: u8 = 0x3;
-    fn read(payload: &[u8]) -> Result<Self> {
+    async fn read(payload: &[u8]) -> Result<Self> {
         let mut cursor = Reader::new(payload);
         Ok(Self {
-            client_timestamp: cursor.read_i64(Endian::Big)?,
-            server_timestamp: cursor.read_i64(Endian::Big)?,
+            client_timestamp: cursor.read_i64(Endian::Big).await?,
+            server_timestamp: cursor.read_i64(Endian::Big).await?,
         })
     }
-    fn write(&self) -> Result<Vec<u8>> {
+    async fn write(&self) -> Result<Vec<u8>> {
         let mut cursor = Writer::new(vec![]);
-        cursor.write_i64(self.client_timestamp, Endian::Big)?;
-        cursor.write_i64(self.server_timestamp, Endian::Big)?;
+        cursor.write_i64(self.client_timestamp, Endian::Big).await?;
+        cursor.write_i64(self.server_timestamp, Endian::Big).await?;
         Ok(cursor.get_raw_payload())
     }
 }

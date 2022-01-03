@@ -1,9 +1,13 @@
+pub(crate) mod client;
 mod connection;
 pub mod packet;
 mod packetqueue;
 pub mod packets;
-pub(crate) mod raknet;
-pub use crate::raknet::*;
+pub(crate) mod ping;
+pub(crate) mod server;
+pub use crate::client::*;
+pub use crate::ping::*;
+pub use crate::server::*;
 pub mod reader;
 mod recievedqueue;
 pub mod writer;

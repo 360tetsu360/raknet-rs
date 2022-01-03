@@ -14,26 +14,28 @@ pub struct FrameSet {
 }
 
 impl FrameSet {
-    pub fn decode(payload: &[u8]) -> Result<Self> {
+    pub async fn decode(payload: &[u8]) -> Result<Self> {
         let size = payload.len();
         let mut cursor = Reader::new(payload);
         let mut frame_set = Self {
-            header: cursor.read_u8()?,
-            sequence_number: cursor.read_u24(Endian::Little)?,
+            header: cursor.read_u8().await?,
+            sequence_number: cursor.read_u24(Endian::Little).await?,
             datas: vec![],
         };
         while cursor.pos() < size as u64 {
-            frame_set.datas.push(Frame::decode(&mut cursor)?)
+            frame_set.datas.push(Frame::decode(&mut cursor).await?)
         }
 
         Ok(frame_set)
     }
-    pub fn encode(&self) -> Result<Vec<u8>> {
+    pub async fn encode(&self) -> Result<Vec<u8>> {
         let mut cursor = Writer::new(vec![]);
-        cursor.write_u8(self.header)?;
-        cursor.write_u24(self.sequence_number, Endian::Little)?;
+        cursor.write_u8(self.header).await?;
+        cursor
+            .write_u24(self.sequence_number, Endian::Little)
+            .await?;
         for frame in &self.datas {
-            frame.encode(&mut cursor)?;
+            frame.encode(&mut cursor).await?;
         }
         Ok(cursor.get_raw_payload())
     }

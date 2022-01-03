@@ -103,20 +103,22 @@ impl Reliability {
     }
 }
 
+use async_trait::async_trait;
 use std::io::Result;
 
+#[async_trait]
 pub trait Packet: Clone {
     const ID: u8;
-    fn read(buf: &[u8]) -> Result<Self>
+    async fn read(buf: &[u8]) -> Result<Self>
     where
         Self: Sized;
-    fn write(&self) -> Result<Vec<u8>>;
+    async fn write(&self) -> Result<Vec<u8>>;
 }
 
-pub fn encode<T: Packet>(packet: T) -> Result<Vec<u8>> {
-    Ok([&[T::ID], &*packet.write().unwrap()].concat())
+pub async fn encode<T: Packet>(packet: T) -> Result<Vec<u8>> {
+    Ok([&[T::ID], &*packet.write().await?].concat())
 }
 
-pub fn decode<T: Packet>(buf: &[u8]) -> Result<T> {
-    T::read(&buf[1..])
+pub async fn decode<T: Packet>(buf: &[u8]) -> Result<T> {
+    T::read(&buf[1..]).await
 }
