@@ -93,7 +93,10 @@ async fn reader_writer() {
 
     assert_eq!(cursor.read_address().await.unwrap(), test_address);
     assert_eq!(cursor.read_magic().await.unwrap(), true);
-    assert_eq!(cursor.read_string().await.unwrap().cmp(test_string), Ordering::Equal);
+    assert_eq!(
+        cursor.read_string().await.unwrap().cmp(test_string),
+        Ordering::Equal
+    );
 }
 
 #[tokio::test]
