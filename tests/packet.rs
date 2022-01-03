@@ -230,65 +230,94 @@ const ALREADY_CONNECTED_DATA: [u8; 25] = [
 
 #[tokio::test]
 async fn raknet_packet() {
-    let unconnected_ping = decode::<UnconnectedPing>(&UNCONNECTED_PING_DATA).await.unwrap();
+    let unconnected_ping = decode::<UnconnectedPing>(&UNCONNECTED_PING_DATA)
+        .await
+        .unwrap();
     let unconnected_ping_encoded = encode::<UnconnectedPing>(unconnected_ping).await.unwrap();
     debug_assert_eq!(&unconnected_ping_encoded, &UNCONNECTED_PING_DATA);
 
-    let unconnected_pong = decode::<UnconnectedPong>(&UNCONNECTED_PONG_DATA).await.unwrap();
+    let unconnected_pong = decode::<UnconnectedPong>(&UNCONNECTED_PONG_DATA)
+        .await
+        .unwrap();
     let unconnected_pong_encoded = encode::<UnconnectedPong>(unconnected_pong).await.unwrap();
     debug_assert_eq!(&unconnected_pong_encoded, &UNCONNECTED_PONG_DATA);
 
-    let open_connection_request1 =
-        decode::<OpenConnectionRequest1>(&OPEN_CONNECTION_REQUEST1_DATA).await.unwrap();
+    let open_connection_request1 = decode::<OpenConnectionRequest1>(&OPEN_CONNECTION_REQUEST1_DATA)
+        .await
+        .unwrap();
     let open_connection_request1_encoded =
-        encode::<OpenConnectionRequest1>(open_connection_request1).await.unwrap();
+        encode::<OpenConnectionRequest1>(open_connection_request1)
+            .await
+            .unwrap();
     debug_assert_eq!(
         &open_connection_request1_encoded,
         &OPEN_CONNECTION_REQUEST1_DATA
     );
 
-    let open_connection_request2 =
-        decode::<OpenConnectionRequest2>(&OPEN_CONNECTION_REQUEST2_DATA).await.unwrap();
+    let open_connection_request2 = decode::<OpenConnectionRequest2>(&OPEN_CONNECTION_REQUEST2_DATA)
+        .await
+        .unwrap();
     let open_connection_request2_encoded =
-        encode::<OpenConnectionRequest2>(open_connection_request2).await.unwrap();
+        encode::<OpenConnectionRequest2>(open_connection_request2)
+            .await
+            .unwrap();
     debug_assert_eq!(
         &open_connection_request2_encoded,
         &OPEN_CONNECTION_REQUEST2_DATA
     );
 
-    let open_connection_reply1 =
-        decode::<OpenConnectionReply1>(&OPEN_CONNECTION_REPLY1_DATA).await.unwrap();
-    let open_connection_reply1_encoded =
-        encode::<OpenConnectionReply1>(open_connection_reply1).await.unwrap();
+    let open_connection_reply1 = decode::<OpenConnectionReply1>(&OPEN_CONNECTION_REPLY1_DATA)
+        .await
+        .unwrap();
+    let open_connection_reply1_encoded = encode::<OpenConnectionReply1>(open_connection_reply1)
+        .await
+        .unwrap();
     debug_assert_eq!(
         &open_connection_reply1_encoded,
         &OPEN_CONNECTION_REPLY1_DATA
     );
 
-    let open_connection_reply2 =
-        decode::<OpenConnectionReply2>(&OPEN_CONNECTION_REPLY2_DATA).await.unwrap();
-    let open_connection_reply2_encoded =
-        encode::<OpenConnectionReply2>(open_connection_reply2).await.unwrap();
+    let open_connection_reply2 = decode::<OpenConnectionReply2>(&OPEN_CONNECTION_REPLY2_DATA)
+        .await
+        .unwrap();
+    let open_connection_reply2_encoded = encode::<OpenConnectionReply2>(open_connection_reply2)
+        .await
+        .unwrap();
     debug_assert_eq!(
         &open_connection_reply2_encoded,
         &OPEN_CONNECTION_REPLY2_DATA
     );
 
-    let connection_request = decode::<ConnectionRequest>(&CONNECTION_REQUEST_DATA).await.unwrap();
-    let connection_request_encoded = encode::<ConnectionRequest>(connection_request).await.unwrap();
+    let connection_request = decode::<ConnectionRequest>(&CONNECTION_REQUEST_DATA)
+        .await
+        .unwrap();
+    let connection_request_encoded = encode::<ConnectionRequest>(connection_request)
+        .await
+        .unwrap();
     debug_assert_eq!(&connection_request_encoded, &CONNECTION_REQUEST_DATA);
 
     let connection_request_accepted =
-        decode::<ConnectionRequestAccepted>(&CONNECTION_REQUEST_ACCEPTED_DATA).await.unwrap();
-    encode::<ConnectionRequestAccepted>(connection_request_accepted).await.unwrap();
+        decode::<ConnectionRequestAccepted>(&CONNECTION_REQUEST_ACCEPTED_DATA)
+            .await
+            .unwrap();
+    encode::<ConnectionRequestAccepted>(connection_request_accepted)
+        .await
+        .unwrap();
 
-    let new_incoming_connection =
-        decode::<NewIncomingConnection>(&NEW_INCOMING_CONNECTION_DATA).await.unwrap();
-    encode::<NewIncomingConnection>(new_incoming_connection).await.unwrap();
+    let new_incoming_connection = decode::<NewIncomingConnection>(&NEW_INCOMING_CONNECTION_DATA)
+        .await
+        .unwrap();
+    encode::<NewIncomingConnection>(new_incoming_connection)
+        .await
+        .unwrap();
 
     let incompatible_protocol_version =
-        decode::<IncompatibleProtocolVersion>(&INCOMPATIBLE_PROTOCOL_VERSION_DATA).await.unwrap();
-    encode::<IncompatibleProtocolVersion>(incompatible_protocol_version).await.unwrap();
+        decode::<IncompatibleProtocolVersion>(&INCOMPATIBLE_PROTOCOL_VERSION_DATA)
+            .await
+            .unwrap();
+    encode::<IncompatibleProtocolVersion>(incompatible_protocol_version)
+        .await
+        .unwrap();
 
     let ack = decode::<Ack>(&ACK_DATA).await.unwrap();
     let ack_encoded = encode::<Ack>(ack).await.unwrap();
@@ -310,7 +339,9 @@ async fn raknet_packet() {
     let frameset_encoded = frameset.encode().await.unwrap();
     debug_assert_eq!(&frameset_encoded, &FRAME_SETPACKET_DATA);
 
-    let already_connected = decode::<AlreadyConnected>(&ALREADY_CONNECTED_DATA).await.unwrap();
+    let already_connected = decode::<AlreadyConnected>(&ALREADY_CONNECTED_DATA)
+        .await
+        .unwrap();
     let already_connected_encoded = encode::<AlreadyConnected>(already_connected).await.unwrap();
     debug_assert_eq!(&already_connected_encoded, &ALREADY_CONNECTED_DATA);
 

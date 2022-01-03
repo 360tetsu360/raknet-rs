@@ -49,8 +49,8 @@ impl Display for RaknetError {
                 write!(f, "Different Protocol Version: {} {}", server, client)
             }
             Self::AlreadyConnected(s) => write!(f, "AlreadyConnected: {}", s),
-            Self::RemoteClosed(s) => write!(f,"RemoteClosed : {}",s),
-            Self::Other(s) => write!(f,"{}",s),
+            Self::RemoteClosed(s) => write!(f, "RemoteClosed : {}", s),
+            Self::Other(s) => write!(f, "{}", s),
         }
     }
 }
