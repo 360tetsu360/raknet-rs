@@ -26,29 +26,36 @@ impl ConnectionRequestAccepted {
     }
 }
 
+use async_trait::async_trait;
+
+#[async_trait]
 impl Packet for ConnectionRequestAccepted {
     const ID: u8 = 0x10;
-    fn read(payload: &[u8]) -> Result<Self> {
+    async fn read(payload: &[u8]) -> Result<Self> {
         let mut cursor = Reader::new(payload);
         Ok(Self {
-            client_address: cursor.read_address()?,
-            system_index: cursor.read_u16(Endian::Big)?,
+            client_address: cursor.read_address().await?,
+            system_index: cursor.read_u16(Endian::Big).await?,
             request_timestamp: {
                 cursor.next(((payload.len() - 16) - cursor.pos() as usize) as u64);
-                cursor.read_i64(Endian::Big)?
+                cursor.read_i64(Endian::Big).await?
             },
-            accepted_timestamp: cursor.read_i64(Endian::Big)?,
+            accepted_timestamp: cursor.read_i64(Endian::Big).await?,
         })
     }
-    fn write(&self) -> Result<Vec<u8>> {
+    async fn write(&self) -> Result<Vec<u8>> {
         let mut cursor = Writer::new(vec![]);
-        cursor.write_address(self.client_address)?;
-        cursor.write_u16(self.system_index, Endian::Big)?;
+        cursor.write_address(self.client_address).await?;
+        cursor.write_u16(self.system_index, Endian::Big).await?;
         for _ in 0..10 {
-            cursor.write_u8(0x06)?;
+            cursor.write_u8(0x06).await?;
         }
-        cursor.write_i64(self.request_timestamp, Endian::Big)?;
-        cursor.write_i64(self.accepted_timestamp, Endian::Big)?;
+        cursor
+            .write_i64(self.request_timestamp, Endian::Big)
+            .await?;
+        cursor
+            .write_i64(self.accepted_timestamp, Endian::Big)
+            .await?;
         Ok(cursor.get_raw_payload())
     }
 }

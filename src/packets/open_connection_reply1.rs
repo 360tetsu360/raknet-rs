@@ -22,23 +22,26 @@ impl OpenConnectionReply1 {
     }
 }
 
+use async_trait::async_trait;
+
+#[async_trait]
 impl Packet for OpenConnectionReply1 {
     const ID: u8 = 0x6;
-    fn read(payload: &[u8]) -> Result<Self> {
+    async fn read(payload: &[u8]) -> Result<Self> {
         let mut cursor = Reader::new(payload);
         Ok(Self {
-            _magic: cursor.read_magic()?,
-            guid: cursor.read_u64(Endian::Big)?,
-            use_encryption: cursor.read_u8()?,
-            mtu_size: cursor.read_u16(Endian::Big)?,
+            _magic: cursor.read_magic().await?,
+            guid: cursor.read_u64(Endian::Big).await?,
+            use_encryption: cursor.read_u8().await?,
+            mtu_size: cursor.read_u16(Endian::Big).await?,
         })
     }
-    fn write(&self) -> Result<Vec<u8>> {
+    async fn write(&self) -> Result<Vec<u8>> {
         let mut cursor = Writer::new(vec![]);
-        cursor.write_magic()?;
-        cursor.write_u64(self.guid, Endian::Big)?;
-        cursor.write_u8(self.use_encryption)?;
-        cursor.write_u16(self.mtu_size, Endian::Big)?;
+        cursor.write_magic().await?;
+        cursor.write_u64(self.guid, Endian::Big).await?;
+        cursor.write_u8(self.use_encryption).await?;
+        cursor.write_u16(self.mtu_size, Endian::Big).await?;
 
         Ok(cursor.get_raw_payload())
     }

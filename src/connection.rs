@@ -2,11 +2,17 @@ use crate::{
     packet::{ACKQueue, RaknetPacket},
     packetqueue::PacketQueue,
     packets::*,
-    raknet::{DisconnectReason, RaknetEvent},
     recievedqueue::RecievdQueue,
+    server::{DisconnectReason, RaknetEvent},
 };
-use std::{convert::TryInto, net::SocketAddr, sync::Arc, time::{Instant,SystemTime, UNIX_EPOCH}};
-use tokio::net::UdpSocket;
+use std::{
+    collections::VecDeque,
+    convert::TryInto,
+    net::SocketAddr,
+    sync::Arc,
+    time::{Instant, SystemTime, UNIX_EPOCH},
+};
+use tokio::{net::UdpSocket, sync::mpsc::Sender};
 const DATAGRAM_FLAG: u8 = 0x80;
 
 const ACK_FLAG: u8 = 0x40;
@@ -16,7 +22,7 @@ const NACK_FLAG: u8 = 0x20;
 pub struct Connection {
     pub address: SocketAddr,
     socket: Arc<UdpSocket>,
-    pub event_queue: Vec<RaknetEvent>,
+    pub event_sender: Sender<RaknetEvent>,
     pub guid: u64,
     pub mtu: u16,
     pub timer: Instant,
@@ -29,6 +35,7 @@ pub struct Connection {
     recieved: RecievdQueue,
     last_ping: u128,
     dissconnected: bool,
+    recovery_queue: VecDeque<RaknetEvent>,
 }
 
 impl Connection {
@@ -38,12 +45,13 @@ impl Connection {
         guid: u64,
         timer: Instant,
         mtu: u16,
+        sender: Sender<RaknetEvent>,
     ) -> Self {
         let time = timer.elapsed().as_millis();
         Self {
             address,
             socket,
-            event_queue: vec![],
+            event_sender: sender,
             guid,
             mtu,
             timer,
@@ -56,27 +64,37 @@ impl Connection {
             recieved: RecievdQueue::new(),
             last_ping: time,
             dissconnected: false,
+            recovery_queue: VecDeque::new(),
         }
     }
     pub async fn update(&mut self) {
-        self.event_queue.clear();
         self.flush_queue().await;
         self.flush_ack().await;
+        self.recovery();
         let time = self.timer.elapsed().as_millis();
         if (time - self.last_recieve) > 10000 {
             self.disconnect();
-            self.disconnected(DisconnectReason::Timeout);
+            self.disconnected(DisconnectReason::Timeout).await;
         }
         if (time - self.last_ping) > 5 * 1000 {
             // 1/s
             self.last_ping = time;
-            self.send_ping();
+            self.send_ping().await;
         }
     }
-    pub fn connect(&mut self) {
+    fn recovery(&mut self) {
+        if !self.recovery_queue.is_empty() {
+            while let Some(event) = self.recovery_queue.pop_front() {
+                if self.event_sender.try_send(event).is_err() {
+                    break;
+                }
+            }
+        }
+    }
+    pub async fn connect(&mut self) {
         let request =
             ConnectionRequest::new(self.guid, self.timer.elapsed().as_millis() as i64, false);
-        let buff = match encode::<ConnectionRequest>(request) {
+        let buff = match encode(request).await {
             Ok(buff) => buff,
             Err(e) => {
                 eprintln!("failed to decode connectionrequest {}", e);
@@ -92,9 +110,9 @@ impl Connection {
         self.last_recieve = self.timer.elapsed().as_millis();
 
         if header & ACK_FLAG != 0 {
-            self.handle_ack(buff);
+            self.handle_ack(buff).await;
         } else if header & NACK_FLAG != 0 {
-            self.handle_nack(buff);
+            self.handle_nack(buff).await;
         } else if header & DATAGRAM_FLAG != 0 {
             self.handle_datagram(buff).await;
         }
@@ -105,9 +123,9 @@ impl Connection {
             self.send_ack(ack).await;
         }
     }
-    fn send_ping(&mut self) {
+    async fn send_ping(&mut self) {
         let connected_ping = ConnectedPing::new(self.last_ping as i64);
-        let buff = match encode::<ConnectedPing>(connected_ping) {
+        let buff = match encode(connected_ping).await {
             Ok(buff) => buff,
             Err(e) => {
                 eprintln!("failed to decode connectedping {}", e);
@@ -122,7 +140,7 @@ impl Connection {
             return;
         }
         let ack = Ack::new(packet);
-        let buff = match encode::<Ack>(ack) {
+        let buff = match encode(ack).await {
             Ok(buff) => buff,
             Err(e) => {
                 eprintln!("failed to encode ack {}", e);
@@ -133,7 +151,7 @@ impl Connection {
             Ok(_) => {}
             Err(e) => {
                 eprintln!("{}", e);
-                self.disconnected(DisconnectReason::Disconnect);
+                self.disconnected(DisconnectReason::Disconnect).await;
             }
         }
     }
@@ -142,7 +160,7 @@ impl Connection {
             return;
         }
         let nack = Nack::new((packet, packet));
-        let buff = match encode::<Nack>(nack) {
+        let buff = match encode(nack).await {
             Ok(buff) => buff,
             Err(e) => {
                 eprintln!("failed to encode nack {}", e);
@@ -153,12 +171,12 @@ impl Connection {
             Ok(_) => {}
             Err(e) => {
                 eprintln!("{}", e);
-                self.disconnected(DisconnectReason::Disconnect);
+                self.disconnected(DisconnectReason::Disconnect).await;
             }
         }
     }
-    fn handle_ack(&mut self, buff: &[u8]) {
-        let ack = match decode::<Ack>(buff) {
+    async fn handle_ack(&mut self, buff: &[u8]) {
+        let ack = match decode::<Ack>(buff).await {
             Ok(ack) => ack,
             Err(e) => {
                 eprintln!("failed to decode ack {}", e);
@@ -170,8 +188,8 @@ impl Connection {
         }
     }
 
-    fn handle_nack(&mut self, buff: &[u8]) {
-        let nack = match decode::<Nack>(buff) {
+    async fn handle_nack(&mut self, buff: &[u8]) {
+        let nack = match decode::<Nack>(buff).await {
             Ok(nack) => nack,
             Err(e) => {
                 eprintln!("failed to decode nack {}", e);
@@ -184,7 +202,7 @@ impl Connection {
     }
 
     async fn handle_datagram(&mut self, buff: &[u8]) {
-        let frame_set = match FrameSet::decode(buff) {
+        let frame_set = match FrameSet::decode(buff).await {
             Ok(frameset) => frameset,
             Err(e) => {
                 eprintln!("failed to decode frameset {}", e);
@@ -198,40 +216,47 @@ impl Connection {
             }
         }
         for frame in frame_set.datas {
-            self.recieve_packet(frame);
+            self.recieve_packet(frame).await;
         }
     }
-    fn recieve_packet(&mut self, frame: Frame) {
+    async fn recieve_packet(&mut self, frame: Frame) {
         if !frame.reliability.sequenced_or_ordered() {
-            self.handle_packet(&frame.data);
+            self.handle_packet(&frame.data).await;
         } else {
             self.recieved.add(frame);
             for packet in self.recieved.get_all() {
-                self.handle_packet(&packet.data);
+                self.handle_packet(&packet.data).await;
             }
         }
     }
 
-    fn handle_packet(&mut self, payload: &[u8]) {
+    async fn handle_packet(&mut self, payload: &[u8]) {
         match payload[0] {
             ConnectionRequest::ID => {
-                self.handle_connectionrequest(payload);
+                self.handle_connectionrequest(payload).await;
             }
             ConnectionRequestAccepted::ID => {
-                self.handle_connectionrequest_accepted(payload);
+                self.handle_connectionrequest_accepted(payload).await;
             }
             NewIncomingConnection::ID => {}
             ConnectedPing::ID => {
-                self.handle_connectedping(payload);
+                self.handle_connectedping(payload).await;
             }
             ConnectedPong::ID => {}
             Disconnected::ID => {
                 self.disconnect();
-                self.disconnected(DisconnectReason::Disconnect);
+                self.disconnected(DisconnectReason::Disconnect).await;
             }
             _ => {
                 let rak_packet = RaknetPacket::new(self.address, self.guid, payload.to_vec());
-                self.event_queue.push(RaknetEvent::Packet(rak_packet));
+                if self.put_event(RaknetEvent::Packet(rak_packet)) {
+                    self.recovery_queue
+                        .push_back(RaknetEvent::Packet(RaknetPacket::new(
+                            self.address,
+                            self.guid,
+                            payload.to_vec(),
+                        )));
+                }
             }
         }
     }
@@ -275,11 +300,15 @@ impl Connection {
     fn send(&mut self, packet: Frame) {
         self.packet_queue.add_frame(packet);
     }
+    fn put_event(&mut self, event: RaknetEvent) -> bool {
+        self.recovery();
+        self.event_sender.try_send(event).is_err()
+    }
     async fn flush_queue(&mut self) {
         let mut error = false;
         let time = self.timer.elapsed().as_millis();
         for send_able in self.packet_queue.get_packet(time).clone() {
-            let frame_set = match send_able.encode() {
+            let frame_set = match send_able.encode().await {
                 Ok(buff) => buff,
                 Err(e) => {
                     eprintln!("failed to encode frameset {}", e);
@@ -297,11 +326,11 @@ impl Connection {
             }
         }
         if error && !self.dissconnected {
-            self.disconnected(DisconnectReason::Disconnect);
+            self.disconnected(DisconnectReason::Disconnect).await;
         }
     }
-    fn handle_connectionrequest(&mut self, payload: &[u8]) {
-        let p = match decode::<ConnectionRequest>(payload) {
+    async fn handle_connectionrequest(&mut self, payload: &[u8]) {
+        let p = match decode::<ConnectionRequest>(payload).await {
             Ok(p) => p,
             Err(e) => {
                 eprintln!("failed to decode connectionrequest {}", e);
@@ -310,7 +339,7 @@ impl Connection {
         };
 
         let reply = ConnectionRequestAccepted::new(self.address, p.time, self.time_stamp());
-        let buff = match encode::<ConnectionRequestAccepted>(reply) {
+        let buff = match encode::<ConnectionRequestAccepted>(reply).await {
             Ok(buff) => buff,
             Err(e) => {
                 eprintln!("failed to encode connectionrequestaccepted {}", e);
@@ -321,11 +350,13 @@ impl Connection {
         self.send(frame);
         self.message_index += 1;
         self.order_index += 1;
-        self.event_queue
-            .push(RaknetEvent::Connected(self.address, self.guid))
+        if self.put_event(RaknetEvent::Connected(self.address, self.guid)) {
+            self.recovery_queue
+                .push_back(RaknetEvent::Connected(self.address, self.guid));
+        }
     }
-    fn handle_connectionrequest_accepted(&mut self, payload: &[u8]) {
-        let accepted = match decode::<ConnectionRequestAccepted>(payload) {
+    async fn handle_connectionrequest_accepted(&mut self, payload: &[u8]) {
+        let accepted = match decode::<ConnectionRequestAccepted>(payload).await {
             Ok(accepted) => accepted,
             Err(e) => {
                 eprintln!("failed to decode connectionrequestaccepted {}", e);
@@ -338,7 +369,7 @@ impl Connection {
             request_timestamp: accepted.request_timestamp,
             accepted_timestamp: accepted.accepted_timestamp,
         };
-        let buff = match encode::<NewIncomingConnection>(newincoming) {
+        let buff = match encode(newincoming).await {
             Ok(buff) => buff,
             Err(e) => {
                 eprintln!("failed to encode newincomingconnection {}", e);
@@ -349,12 +380,14 @@ impl Connection {
         self.send(frame);
         self.message_index += 1;
         self.order_index += 1;
-        self.event_queue
-            .push(RaknetEvent::Connected(self.address, self.guid));
-        self.send_ping();
+        if self.put_event(RaknetEvent::Connected(self.address, self.guid)) {
+            self.recovery_queue
+                .push_back(RaknetEvent::Connected(self.address, self.guid));
+        }
+        self.send_ping().await;
     }
-    fn handle_connectedping(&mut self, payload: &[u8]) {
-        let p = match decode::<ConnectedPing>(payload) {
+    async fn handle_connectedping(&mut self, payload: &[u8]) {
+        let p = match decode::<ConnectedPing>(payload).await {
             Ok(p) => p,
             Err(e) => {
                 eprintln!("failed to decode connectedping {}", e);
@@ -363,7 +396,7 @@ impl Connection {
         };
 
         let pong = ConnectedPong::new(p.client_timestamp, self.time_stamp());
-        let buff = match encode::<ConnectedPong>(pong) {
+        let buff = match encode(pong).await {
             Ok(buff) => buff,
             Err(e) => {
                 eprintln!("failed to encode connectedpong {}", e);
@@ -391,16 +424,23 @@ impl Connection {
         }
     }
 
-    fn disconnected(&mut self, reason: DisconnectReason) {
+    async fn disconnected(&mut self, reason: DisconnectReason) {
         self.dissconnected = true;
-        self.event_queue
-            .push(RaknetEvent::Disconnected(self.address, self.guid, reason));
+        if self.put_event(RaknetEvent::Disconnected(self.address, self.guid, reason)) {
+            self.recovery_queue.push_back(RaknetEvent::Disconnected(
+                self.address,
+                self.guid,
+                reason,
+            ));
+        }
     }
 
     pub fn time_stamp(&mut self) -> i64 {
-        match SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis().try_into() {
-            Ok(p) => p,
-            Err(_) => 0,
-        }
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+            .try_into()
+            .unwrap_or(0)
     }
 }

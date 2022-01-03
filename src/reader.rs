@@ -1,9 +1,10 @@
-use byteorder::{BigEndian, LittleEndian, ReadBytesExt};
 use std::{
-    io::{Cursor, Read, Result},
+    io::{Cursor, Result},
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     str,
 };
+use tokio::io::AsyncReadExt;
+use tokio_byteorder::{AsyncReadBytesExt, BigEndian, LittleEndian};
 
 pub enum Endian {
     Big,
@@ -23,98 +24,94 @@ impl<'a> Reader<'a> {
             strbuf: Vec::with_capacity(0),
         }
     }
-    pub fn read(&mut self, buf: &mut [u8]) -> Result<()> {
-        self.cursor.read_exact(buf)?;
+    pub async fn read(&mut self, buf: &mut [u8]) -> Result<()> {
+        self.cursor.read_exact(buf).await?;
         Ok(())
     }
-    pub fn read_u8(&mut self) -> Result<u8> {
-        self.cursor.read_u8()
+    pub async fn read_u8(&mut self) -> Result<u8> {
+        AsyncReadBytesExt::read_u8(&mut self.cursor).await
     }
 
-    pub fn read_u16(&mut self, n: Endian) -> Result<u16> {
+    pub async fn read_u16(&mut self, n: Endian) -> Result<u16> {
         match n {
-            Endian::Big => self.cursor.read_u16::<BigEndian>(),
-            Endian::Little => self.cursor.read_u16::<LittleEndian>(),
+            Endian::Big => AsyncReadBytesExt::read_u16::<BigEndian>(&mut self.cursor).await,
+            Endian::Little => AsyncReadBytesExt::read_u16::<LittleEndian>(&mut self.cursor).await,
         }
     }
 
-    pub fn read_u32(&mut self, n: Endian) -> Result<u32> {
+    pub async fn read_u32(&mut self, n: Endian) -> Result<u32> {
         match n {
-            Endian::Big => self.cursor.read_u32::<BigEndian>(),
-            Endian::Little => self.cursor.read_u32::<LittleEndian>(),
+            Endian::Big => AsyncReadBytesExt::read_u32::<BigEndian>(&mut self.cursor).await,
+            Endian::Little => AsyncReadBytesExt::read_u32::<LittleEndian>(&mut self.cursor).await,
         }
     }
 
-    pub fn read_u64(&mut self, n: Endian) -> Result<u64> {
+    pub async fn read_u64(&mut self, n: Endian) -> Result<u64> {
         match n {
-            Endian::Big => self.cursor.read_u64::<BigEndian>(),
-            Endian::Little => self.cursor.read_u64::<LittleEndian>(),
+            Endian::Big => AsyncReadBytesExt::read_u64::<BigEndian>(&mut self.cursor).await,
+            Endian::Little => AsyncReadBytesExt::read_u64::<LittleEndian>(&mut self.cursor).await,
         }
     }
-    pub fn read_i64(&mut self, n: Endian) -> Result<i64> {
+    pub async fn read_i64(&mut self, n: Endian) -> Result<i64> {
         match n {
-            Endian::Big => self.cursor.read_i64::<BigEndian>(),
-            Endian::Little => self.cursor.read_i64::<LittleEndian>(),
-        }
-    }
-
-    pub fn read_u24(&mut self, n: Endian) -> Result<u32> {
-        match n {
-            Endian::Big => self.cursor.read_u24::<BigEndian>(),
-            Endian::Little => self.cursor.read_u24::<LittleEndian>(),
+            Endian::Big => AsyncReadBytesExt::read_i64::<BigEndian>(&mut self.cursor).await,
+            Endian::Little => AsyncReadBytesExt::read_i64::<LittleEndian>(&mut self.cursor).await,
         }
     }
 
-    pub fn read_string(&'a mut self) -> &'a str {
-        let size = self.read_u16(Endian::Big).unwrap();
+    pub async fn read_u24(&mut self, n: Endian) -> Result<u32> {
+        match n {
+            Endian::Big => self.cursor.read_u24::<BigEndian>().await,
+            Endian::Little => self.cursor.read_u24::<LittleEndian>().await,
+        }
+    }
+
+    pub async fn read_string(&'a mut self) -> Result<&'a str> {
+        let size = self.read_u16(Endian::Big).await?;
         self.strbuf.resize(size.into(), 0);
-        assert!(self.cursor.read(&mut self.strbuf).unwrap() == size.into());
-        str::from_utf8(&self.strbuf).unwrap()
+        assert!(self.cursor.read_exact(&mut self.strbuf).await? == size.into());
+        Ok(str::from_utf8(&self.strbuf).unwrap())
     }
-    pub fn read_magic(&mut self) -> Result<bool> {
+    pub async fn read_magic(&mut self) -> Result<bool> {
         let mut magic = [0; 16];
-        self.cursor
-            .read_exact(&mut magic)
-            .expect("Unable to read magic bytes");
+        self.cursor.read_exact(&mut magic).await?;
         let offline_magic = [
             0x00, 0xff, 0xff, 0x00, 0xfe, 0xfe, 0xfe, 0xfe, 0xfd, 0xfd, 0xfd, 0xfd, 0x12, 0x34,
             0x56, 0x78,
         ];
         Ok(magic == offline_magic)
     }
-    pub fn read_address(&mut self) -> Result<SocketAddr> {
-        let ip_ver = self.read_u8()?;
+    pub async fn read_address(&mut self) -> Result<SocketAddr> {
+        let ip_ver = self.read_u8().await?;
 
         if ip_ver == 4 {
             let ip = Ipv4Addr::new(
-                0xff - self.read_u8()?,
-                0xff - self.read_u8()?,
-                0xff - self.read_u8()?,
-                0xff - self.read_u8()?,
+                0xff - self.read_u8().await?,
+                0xff - self.read_u8().await?,
+                0xff - self.read_u8().await?,
+                0xff - self.read_u8().await?,
             );
-            let port = self.cursor.read_u16::<BigEndian>()?;
+            let port = AsyncReadBytesExt::read_u16::<BigEndian>(&mut self.cursor).await?;
             Ok(SocketAddr::new(IpAddr::V4(ip), port))
         } else {
             self.next(2);
-            let port = self.cursor.read_u16::<LittleEndian>()?;
+            let port = AsyncReadBytesExt::read_u16::<LittleEndian>(&mut self.cursor).await?;
             self.next(4);
             let mut addr_buf = [0; 16];
-            self.cursor
-                .read_exact(&mut addr_buf)
-                .expect("Unable to read ipv6 address bytes");
+            self.cursor.read_exact(&mut addr_buf).await?;
 
             let mut address_cursor = Reader::new(&addr_buf);
             self.next(4);
             Ok(SocketAddr::new(
                 IpAddr::V6(Ipv6Addr::new(
-                    address_cursor.read_u16(Endian::Big)?,
-                    address_cursor.read_u16(Endian::Big)?,
-                    address_cursor.read_u16(Endian::Big)?,
-                    address_cursor.read_u16(Endian::Big)?,
-                    address_cursor.read_u16(Endian::Big)?,
-                    address_cursor.read_u16(Endian::Big)?,
-                    address_cursor.read_u16(Endian::Big)?,
-                    address_cursor.read_u16(Endian::Big)?,
+                    address_cursor.read_u16(Endian::Big).await?,
+                    address_cursor.read_u16(Endian::Big).await?,
+                    address_cursor.read_u16(Endian::Big).await?,
+                    address_cursor.read_u16(Endian::Big).await?,
+                    address_cursor.read_u16(Endian::Big).await?,
+                    address_cursor.read_u16(Endian::Big).await?,
+                    address_cursor.read_u16(Endian::Big).await?,
+                    address_cursor.read_u16(Endian::Big).await?,
                 )),
                 port,
             ))
