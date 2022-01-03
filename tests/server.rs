@@ -50,50 +50,50 @@ const TEST_U32: u32 = 0xffffffff;
 const TEST_U64: u64 = 0xffffffffffffffff;
 const TEST_I64: i64 = 0x7fffffffffffffff;
 
-#[test]
-fn reader_writer() {
+#[tokio::test]
+async fn reader_writer() {
     let test_address: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 19132);
     let test_string = "Hello world";
     let mut cursor = Writer::new(vec![]);
 
-    cursor.write(&BUFFER).unwrap();
-    cursor.write_u8(TEST_U8).unwrap();
-    cursor.write_u16(TEST_U16, Endian::Big).unwrap();
-    cursor.write_u16(TEST_U16, Endian::Little).unwrap();
-    cursor.write_u24(TEST_U24, Endian::Big).unwrap();
-    cursor.write_u24(TEST_U24, Endian::Little).unwrap();
-    cursor.write_u32(TEST_U32, Endian::Big).unwrap();
-    cursor.write_u32(TEST_U32, Endian::Little).unwrap();
-    cursor.write_u64(TEST_U64, Endian::Big).unwrap();
-    cursor.write_u64(TEST_U64, Endian::Little).unwrap();
-    cursor.write_i64(TEST_I64, Endian::Big).unwrap();
-    cursor.write_i64(TEST_I64, Endian::Little).unwrap();
+    cursor.write(&BUFFER).await.unwrap();
+    cursor.write_u8(TEST_U8).await.unwrap();
+    cursor.write_u16(TEST_U16, Endian::Big).await.unwrap();
+    cursor.write_u16(TEST_U16, Endian::Little).await.unwrap();
+    cursor.write_u24(TEST_U24, Endian::Big).await.unwrap();
+    cursor.write_u24(TEST_U24, Endian::Little).await.unwrap();
+    cursor.write_u32(TEST_U32, Endian::Big).await.unwrap();
+    cursor.write_u32(TEST_U32, Endian::Little).await.unwrap();
+    cursor.write_u64(TEST_U64, Endian::Big).await.unwrap();
+    cursor.write_u64(TEST_U64, Endian::Little).await.unwrap();
+    cursor.write_i64(TEST_I64, Endian::Big).await.unwrap();
+    cursor.write_i64(TEST_I64, Endian::Little).await.unwrap();
 
-    cursor.write_address(test_address).unwrap();
-    cursor.write_magic().unwrap();
-    cursor.write_string(test_string).unwrap();
+    cursor.write_address(test_address).await.unwrap();
+    cursor.write_magic().await.unwrap();
+    cursor.write_string(test_string).await.unwrap();
 
     let buff = cursor.get_raw_payload();
 
     let mut cursor = Reader::new(&buff);
     let mut buff = [0u8; 8];
-    cursor.read(&mut buff).unwrap();
+    cursor.read(&mut buff).await.unwrap();
     assert_eq!(buff, BUFFER);
-    assert_eq!(cursor.read_u8().unwrap(), TEST_U8);
-    assert_eq!(cursor.read_u16(Endian::Big).unwrap(), TEST_U16);
-    assert_eq!(cursor.read_u16(Endian::Little).unwrap(), TEST_U16);
-    assert_eq!(cursor.read_u24(Endian::Big).unwrap(), TEST_U24);
-    assert_eq!(cursor.read_u24(Endian::Little).unwrap(), TEST_U24);
-    assert_eq!(cursor.read_u32(Endian::Big).unwrap(), TEST_U32);
-    assert_eq!(cursor.read_u32(Endian::Little).unwrap(), TEST_U32);
-    assert_eq!(cursor.read_u64(Endian::Big).unwrap(), TEST_U64);
-    assert_eq!(cursor.read_u64(Endian::Little).unwrap(), TEST_U64);
-    assert_eq!(cursor.read_i64(Endian::Big).unwrap(), TEST_I64);
-    assert_eq!(cursor.read_i64(Endian::Little).unwrap(), TEST_I64);
+    assert_eq!(cursor.read_u8().await.unwrap(), TEST_U8);
+    assert_eq!(cursor.read_u16(Endian::Big).await.unwrap(), TEST_U16);
+    assert_eq!(cursor.read_u16(Endian::Little).await.unwrap(), TEST_U16);
+    assert_eq!(cursor.read_u24(Endian::Big).await.unwrap(), TEST_U24);
+    assert_eq!(cursor.read_u24(Endian::Little).await.unwrap(), TEST_U24);
+    assert_eq!(cursor.read_u32(Endian::Big).await.unwrap(), TEST_U32);
+    assert_eq!(cursor.read_u32(Endian::Little).await.unwrap(), TEST_U32);
+    assert_eq!(cursor.read_u64(Endian::Big).await.unwrap(), TEST_U64);
+    assert_eq!(cursor.read_u64(Endian::Little).await.unwrap(), TEST_U64);
+    assert_eq!(cursor.read_i64(Endian::Big).await.unwrap(), TEST_I64);
+    assert_eq!(cursor.read_i64(Endian::Little).await.unwrap(), TEST_I64);
 
-    assert_eq!(cursor.read_address().unwrap(), test_address);
-    assert_eq!(cursor.read_magic().unwrap(), true);
-    assert_eq!(cursor.read_string().cmp(test_string), Ordering::Equal);
+    assert_eq!(cursor.read_address().await.unwrap(), test_address);
+    assert_eq!(cursor.read_magic().await.unwrap(), true);
+    assert_eq!(cursor.read_string().await.unwrap().cmp(test_string), Ordering::Equal);
 }
 
 #[tokio::test]
@@ -139,9 +139,9 @@ async fn server_test() {
     let pong = pinger.ping(remote).await.unwrap();
     println!("{}", pong);
 
-    let mut client = Client::new(remote, true);
+    let mut client = Client::new(remote, true).await;
     client.listen().await;
-    client.connect().await;
+    client.connect().await.unwrap();
     loop {
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         let events = client.recv().await.unwrap();

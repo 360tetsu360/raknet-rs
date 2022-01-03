@@ -38,6 +38,8 @@ impl Clone for RaknetEvent {
 pub enum RaknetError {
     IncompatibleProtocolVersion(u8, u8), //Server,Client
     AlreadyConnected(SocketAddr),
+    RemoteClosed(SocketAddr),
+    Other(String),
 }
 
 impl Display for RaknetError {
@@ -47,6 +49,8 @@ impl Display for RaknetError {
                 write!(f, "Different Protocol Version: {} {}", server, client)
             }
             Self::AlreadyConnected(s) => write!(f, "AlreadyConnected: {}", s),
+            Self::RemoteClosed(s) => write!(f,"RemoteClosed : {}",s),
+            Self::Other(s) => write!(f,"{}",s),
         }
     }
 }
