@@ -228,90 +228,90 @@ const ALREADY_CONNECTED_DATA: [u8; 25] = [
     0x78, 0x91, 0x1b, 0x13, 0x5d, 0x5f, 0x63, 0x9d, 0x1f,
 ];
 
-#[test]
-fn raknet_packet() {
-    let unconnected_ping = decode::<UnconnectedPing>(&UNCONNECTED_PING_DATA).unwrap();
-    let unconnected_ping_encoded = encode::<UnconnectedPing>(unconnected_ping).unwrap();
+#[tokio::test]
+async fn raknet_packet() {
+    let unconnected_ping = decode::<UnconnectedPing>(&UNCONNECTED_PING_DATA).await.unwrap();
+    let unconnected_ping_encoded = encode::<UnconnectedPing>(unconnected_ping).await.unwrap();
     debug_assert_eq!(&unconnected_ping_encoded, &UNCONNECTED_PING_DATA);
 
-    let unconnected_pong = decode::<UnconnectedPong>(&UNCONNECTED_PONG_DATA).unwrap();
-    let unconnected_pong_encoded = encode::<UnconnectedPong>(unconnected_pong).unwrap();
+    let unconnected_pong = decode::<UnconnectedPong>(&UNCONNECTED_PONG_DATA).await.unwrap();
+    let unconnected_pong_encoded = encode::<UnconnectedPong>(unconnected_pong).await.unwrap();
     debug_assert_eq!(&unconnected_pong_encoded, &UNCONNECTED_PONG_DATA);
 
     let open_connection_request1 =
-        decode::<OpenConnectionRequest1>(&OPEN_CONNECTION_REQUEST1_DATA).unwrap();
+        decode::<OpenConnectionRequest1>(&OPEN_CONNECTION_REQUEST1_DATA).await.unwrap();
     let open_connection_request1_encoded =
-        encode::<OpenConnectionRequest1>(open_connection_request1).unwrap();
+        encode::<OpenConnectionRequest1>(open_connection_request1).await.unwrap();
     debug_assert_eq!(
         &open_connection_request1_encoded,
         &OPEN_CONNECTION_REQUEST1_DATA
     );
 
     let open_connection_request2 =
-        decode::<OpenConnectionRequest2>(&OPEN_CONNECTION_REQUEST2_DATA).unwrap();
+        decode::<OpenConnectionRequest2>(&OPEN_CONNECTION_REQUEST2_DATA).await.unwrap();
     let open_connection_request2_encoded =
-        encode::<OpenConnectionRequest2>(open_connection_request2).unwrap();
+        encode::<OpenConnectionRequest2>(open_connection_request2).await.unwrap();
     debug_assert_eq!(
         &open_connection_request2_encoded,
         &OPEN_CONNECTION_REQUEST2_DATA
     );
 
     let open_connection_reply1 =
-        decode::<OpenConnectionReply1>(&OPEN_CONNECTION_REPLY1_DATA).unwrap();
+        decode::<OpenConnectionReply1>(&OPEN_CONNECTION_REPLY1_DATA).await.unwrap();
     let open_connection_reply1_encoded =
-        encode::<OpenConnectionReply1>(open_connection_reply1).unwrap();
+        encode::<OpenConnectionReply1>(open_connection_reply1).await.unwrap();
     debug_assert_eq!(
         &open_connection_reply1_encoded,
         &OPEN_CONNECTION_REPLY1_DATA
     );
 
     let open_connection_reply2 =
-        decode::<OpenConnectionReply2>(&OPEN_CONNECTION_REPLY2_DATA).unwrap();
+        decode::<OpenConnectionReply2>(&OPEN_CONNECTION_REPLY2_DATA).await.unwrap();
     let open_connection_reply2_encoded =
-        encode::<OpenConnectionReply2>(open_connection_reply2).unwrap();
+        encode::<OpenConnectionReply2>(open_connection_reply2).await.unwrap();
     debug_assert_eq!(
         &open_connection_reply2_encoded,
         &OPEN_CONNECTION_REPLY2_DATA
     );
 
-    let connection_request = decode::<ConnectionRequest>(&CONNECTION_REQUEST_DATA).unwrap();
-    let connection_request_encoded = encode::<ConnectionRequest>(connection_request).unwrap();
+    let connection_request = decode::<ConnectionRequest>(&CONNECTION_REQUEST_DATA).await.unwrap();
+    let connection_request_encoded = encode::<ConnectionRequest>(connection_request).await.unwrap();
     debug_assert_eq!(&connection_request_encoded, &CONNECTION_REQUEST_DATA);
 
     let connection_request_accepted =
-        decode::<ConnectionRequestAccepted>(&CONNECTION_REQUEST_ACCEPTED_DATA).unwrap();
-    encode::<ConnectionRequestAccepted>(connection_request_accepted).unwrap();
+        decode::<ConnectionRequestAccepted>(&CONNECTION_REQUEST_ACCEPTED_DATA).await.unwrap();
+    encode::<ConnectionRequestAccepted>(connection_request_accepted).await.unwrap();
 
     let new_incoming_connection =
-        decode::<NewIncomingConnection>(&NEW_INCOMING_CONNECTION_DATA).unwrap();
-    encode::<NewIncomingConnection>(new_incoming_connection).unwrap();
+        decode::<NewIncomingConnection>(&NEW_INCOMING_CONNECTION_DATA).await.unwrap();
+    encode::<NewIncomingConnection>(new_incoming_connection).await.unwrap();
 
     let incompatible_protocol_version =
-        decode::<IncompatibleProtocolVersion>(&INCOMPATIBLE_PROTOCOL_VERSION_DATA).unwrap();
-    encode::<IncompatibleProtocolVersion>(incompatible_protocol_version).unwrap();
+        decode::<IncompatibleProtocolVersion>(&INCOMPATIBLE_PROTOCOL_VERSION_DATA).await.unwrap();
+    encode::<IncompatibleProtocolVersion>(incompatible_protocol_version).await.unwrap();
 
-    let ack = decode::<Ack>(&ACK_DATA).unwrap();
-    let ack_encoded = encode::<Ack>(ack).unwrap();
+    let ack = decode::<Ack>(&ACK_DATA).await.unwrap();
+    let ack_encoded = encode::<Ack>(ack).await.unwrap();
     debug_assert_eq!(&ack_encoded, &ACK_DATA);
 
-    let nack = decode::<Nack>(&NACK_DATA).unwrap();
-    let nack_encoded = encode::<Nack>(nack).unwrap();
+    let nack = decode::<Nack>(&NACK_DATA).await.unwrap();
+    let nack_encoded = encode::<Nack>(nack).await.unwrap();
     debug_assert_eq!(&nack_encoded, &NACK_DATA);
 
-    let connected_ping = decode::<ConnectedPing>(&CONNECTEDPING_DATA).unwrap();
-    let connected_ping_encoded = encode::<ConnectedPing>(connected_ping).unwrap();
+    let connected_ping = decode::<ConnectedPing>(&CONNECTEDPING_DATA).await.unwrap();
+    let connected_ping_encoded = encode::<ConnectedPing>(connected_ping).await.unwrap();
     debug_assert_eq!(&connected_ping_encoded, &CONNECTEDPING_DATA);
 
-    let connected_pong = decode::<ConnectedPong>(&CONNECTEDPONG_DATA).unwrap();
-    let connected_pong_encoded = encode::<ConnectedPong>(connected_pong).unwrap();
+    let connected_pong = decode::<ConnectedPong>(&CONNECTEDPONG_DATA).await.unwrap();
+    let connected_pong_encoded = encode::<ConnectedPong>(connected_pong).await.unwrap();
     debug_assert_eq!(&connected_pong_encoded, &CONNECTEDPONG_DATA);
 
-    let frameset = FrameSet::decode(&FRAME_SETPACKET_DATA).unwrap();
-    let frameset_encoded = frameset.encode().unwrap();
+    let frameset = FrameSet::decode(&FRAME_SETPACKET_DATA).await.unwrap();
+    let frameset_encoded = frameset.encode().await.unwrap();
     debug_assert_eq!(&frameset_encoded, &FRAME_SETPACKET_DATA);
 
-    let already_connected = decode::<AlreadyConnected>(&ALREADY_CONNECTED_DATA).unwrap();
-    let already_connected_encoded = encode::<AlreadyConnected>(already_connected).unwrap();
+    let already_connected = decode::<AlreadyConnected>(&ALREADY_CONNECTED_DATA).await.unwrap();
+    let already_connected_encoded = encode::<AlreadyConnected>(already_connected).await.unwrap();
     debug_assert_eq!(&already_connected_encoded, &ALREADY_CONNECTED_DATA);
 
     let nack = Nack::new((0, 1));
@@ -325,8 +325,8 @@ fn raknet_packet() {
 
     let sequenced_frame = Frame::new(Reliability::ReliableSequenced, b"test");
     let mut frame_buff = Writer::new(vec![]);
-    sequenced_frame.encode(&mut frame_buff).unwrap();
+    sequenced_frame.encode(&mut frame_buff).await.unwrap();
     let buff = frame_buff.get_raw_payload();
     let mut reader = Reader::new(&buff);
-    let _sequenced_frame_decoded = Frame::decode(&mut reader).unwrap();
+    let _sequenced_frame_decoded = Frame::decode(&mut reader).await.unwrap();
 }

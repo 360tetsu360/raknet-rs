@@ -4,7 +4,7 @@ use std::net::{SocketAddr, ToSocketAddrs};
 #[tokio::main]
 async fn main() {
     let pinger = Ping::new().await;
-    let remote = "hivebedrock.network:19132"
+    let remote = "127.0.0.1:19132"
         .to_socket_addrs()
         .unwrap()
         .collect::<Vec<SocketAddr>>();

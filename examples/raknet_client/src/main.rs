@@ -3,9 +3,9 @@ use std::net::ToSocketAddrs;
 
 async fn client() {
     let mut remote = "127.0.0.1:19132".to_socket_addrs().unwrap();
-    let mut client = Client::new(remote.next().unwrap(), true);
+    let mut client = Client::new(remote.next().unwrap(), true).await;
+    client.connect().await.unwrap();
     client.listen().await;
-    client.connect().await;
     loop {
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         let events = client.recv().await.unwrap();
