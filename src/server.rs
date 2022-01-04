@@ -9,6 +9,8 @@ use tokio::{
 
 use crate::{connection::Connection, packet::RaknetPacket, packets::*};
 
+use crate::macros::*;
+
 const RAKNET_PROTOCOL_VERSION: u8 = 0xA;
 
 #[derive(Clone, Copy)]
@@ -98,13 +100,7 @@ impl Server {
         tokio::spawn(async move {
             let mut v = [0u8; 1500];
             loop {
-                let (size, source) = match socket2.recv_from(&mut v).await {
-                    Ok(p) => p,
-                    Err(e) => {
-                        eprintln!("{}", e);
-                        continue;
-                    }
-                };
+                let (size, source) = unwrap_or_return!(socket2.recv_from(&mut v).await);
 
                 let connections3 = connections2.clone();
                 let socket3 = socket2.clone();
@@ -118,113 +114,58 @@ impl Server {
                         let buff = &v[..size];
                         match buff[0] {
                             UnconnectedPing::ID => {
-                                let p = match decode::<UnconnectedPing>(buff).await {
-                                    Ok(p) => p,
-                                    Err(e) => {
-                                        eprintln!("failed to decode unconnectedping {}", e);
-                                        return;
-                                    }
-                                };
+                                let p = unwrap_or_return!(decode::<UnconnectedPing>(buff).await);
                                 let pong = UnconnectedPong::new(
                                     p.time,
                                     id,
                                     motd2.lock().await.to_string(),
                                 );
-                                if let Ok(data) = encode(pong).await {
-                                    match socket3.send_to(&data, source).await {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            eprintln!("failed to encode unconnectedpong {}", e);
-                                        }
-                                    };
-                                };
+                                let data = unwrap_or_dbg!(encode(pong).await);
+                                unwrap_or_dbg!(socket3.send_to(&data, source).await);
                             }
                             OpenConnectionRequest1::ID => {
-                                let p = match decode::<OpenConnectionRequest1>(buff).await {
-                                    Ok(p) => p,
-                                    Err(e) => {
-                                        eprintln!("failed to decode openconnectionrequest {}", e);
-                                        return;
-                                    }
-                                };
+                                let p =
+                                    unwrap_or_return!(decode::<OpenConnectionRequest1>(buff).await);
                                 if p.protocol_version == RAKNET_PROTOCOL_VERSION {
                                     let ocreply1 = OpenConnectionReply1::new(id, false, p.mtu_size);
-                                    if let Ok(data) = encode(ocreply1).await {
-                                        match socket3.send_to(&data, source).await {
-                                            Ok(_) => {}
-                                            Err(e) => {
-                                                eprintln!("{}", e);
-                                            }
-                                        };
-                                    } else {
-                                        eprintln!("failed to encode openconnectionreply");
-                                    };
+                                    let data = unwrap_or_dbg!(encode(ocreply1).await);
+                                    unwrap_or_dbg!(socket3.send_to(&data, source).await);
                                 } else {
                                     let reply = IncompatibleProtocolVersion::new(
                                         RAKNET_PROTOCOL_VERSION,
                                         id,
                                     );
-                                    if let Ok(data) = encode(reply).await {
-                                        match socket3.send_to(&data, source).await {
-                                            Ok(_) => {}
-                                            Err(e) => {
-                                                eprintln!("{}", e);
-                                            }
-                                        };
-                                    } else {
-                                        eprintln!("failed to encode incompatibleprotocolversion");
-                                    };
+                                    let data = unwrap_or_dbg!(encode(reply).await);
+                                    unwrap_or_dbg!(socket3.send_to(&data, source).await);
                                 }
                             }
                             OpenConnectionRequest2::ID => {
-                                let p = match decode::<OpenConnectionRequest2>(buff).await {
-                                    Ok(p) => p,
-                                    Err(e) => {
-                                        eprintln!("failed to decode openconnectionrequest2 {}", e);
-                                        return;
-                                    }
-                                };
+                                let p =
+                                    unwrap_or_return!(decode::<OpenConnectionRequest2>(buff).await);
                                 if connected_client2.lock().await.contains(&p.guid) {
                                     let already_connected = AlreadyConnected::new(id);
-                                    if let Ok(data) = encode(already_connected).await {
-                                        match socket3.send_to(&data, source).await {
-                                            Ok(_) => {}
-                                            Err(e) => {
-                                                eprintln!("{}", e);
-                                            }
-                                        };
-                                    } else {
-                                        eprintln!("failed to encode alreadyconnected");
-                                    };
+                                    let data = unwrap_or_dbg!(encode(already_connected).await);
+                                    unwrap_or_dbg!(socket3.send_to(&data, source).await);
                                     return;
                                 }
 
                                 let ocreply2 = OpenConnectionReply2::new(id, source, p.mtu, false);
-                                if let Ok(data) = encode(ocreply2).await {
-                                    match socket3.send_to(&data, source).await {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            eprintln!("{}", e);
-                                            return;
-                                        }
-                                    };
-                                    let (s, r) = tokio::sync::mpsc::channel::<RaknetEvent>(10);
-                                    connections3.lock().await.insert(
+                                let data = unwrap_or_dbg!(encode(ocreply2).await);
+                                unwrap_or_dbg!(socket3.send_to(&data, source).await);
+                                let (s, r) = tokio::sync::mpsc::channel::<RaknetEvent>(10);
+                                connections3.lock().await.insert(
+                                    source,
+                                    Arc::new(Mutex::new(Connection::new(
                                         source,
-                                        Arc::new(Mutex::new(Connection::new(
-                                            source,
-                                            socket3.clone(),
-                                            id,
-                                            time,
-                                            p.mtu,
-                                            s,
-                                        ))),
-                                    );
-                                    connected_client2.lock().await.push(p.guid);
-                                    receiver2.lock().await.push(r);
-                                } else {
-                                    eprintln!("failed to encode openconnectionreply2");
-                                };
+                                        socket3.clone(),
+                                        id,
+                                        time,
+                                        p.mtu,
+                                        s,
+                                    ))),
+                                );
+                                connected_client2.lock().await.push(p.guid);
+                                receiver2.lock().await.push(r);
                                 //connected!
                             }
                             _ => {}

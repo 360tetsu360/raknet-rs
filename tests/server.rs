@@ -142,9 +142,9 @@ async fn server_test() {
     let pong = pinger.ping(remote).await.unwrap();
     println!("{}", pong);
 
-    let mut client = Client::new(remote, true).await;
-    client.listen().await;
+    let mut client = Client::new(remote, true).await.unwrap();
     client.connect().await.unwrap();
+    client.listen().await;
     loop {
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         let events = client.recv().await.unwrap();

@@ -33,7 +33,7 @@ async fn server() {
 
 async fn client() {
     let mut remote = "127.0.0.1:19132".to_socket_addrs().unwrap();
-    let mut client = Client::new(remote.next().unwrap(), true).await;
+    let mut client = Client::new(remote.next().unwrap(), true).await.unwrap();
     client.connect().await.unwrap();
     client.listen().await;
     loop {

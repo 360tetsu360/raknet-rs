@@ -8,6 +8,7 @@ pub(crate) mod server;
 pub use crate::client::*;
 pub use crate::ping::*;
 pub use crate::server::*;
+pub(crate) mod macros;
 pub mod reader;
 mod recievedqueue;
 pub mod writer;
