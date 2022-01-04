@@ -1,4 +1,5 @@
 use crate::{
+    macros::*,
     packet::{ACKQueue, RaknetPacket},
     packetqueue::PacketQueue,
     packets::*,
@@ -94,13 +95,7 @@ impl Connection {
     pub async fn connect(&mut self) {
         let request =
             ConnectionRequest::new(self.guid, self.timer.elapsed().as_millis() as i64, false);
-        let buff = match encode(request).await {
-            Ok(buff) => buff,
-            Err(e) => {
-                eprintln!("failed to decode connectionrequest {}", e);
-                return;
-            }
-        };
+        let buff = unwrap_or_dbg!(encode(request).await);
         let frame = Frame::new(Reliability::Reliable, &buff);
         self.send(frame);
     }
@@ -125,13 +120,7 @@ impl Connection {
     }
     async fn send_ping(&mut self) {
         let connected_ping = ConnectedPing::new(self.last_ping as i64);
-        let buff = match encode(connected_ping).await {
-            Ok(buff) => buff,
-            Err(e) => {
-                eprintln!("failed to decode connectedping {}", e);
-                return;
-            }
-        };
+        let buff = unwrap_or_dbg!(encode(connected_ping).await);
         let frame = Frame::new(Reliability::Unreliable, &buff);
         self.send(frame);
     }
@@ -140,75 +129,33 @@ impl Connection {
             return;
         }
         let ack = Ack::new(packet);
-        let buff = match encode(ack).await {
-            Ok(buff) => buff,
-            Err(e) => {
-                eprintln!("failed to encode ack {}", e);
-                return;
-            }
-        };
-        match self.socket.send_to(&buff, self.address).await {
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!("{}", e);
-                self.disconnected(DisconnectReason::Disconnect).await;
-            }
-        }
+        let buff = unwrap_or_dbg!(encode(ack).await);
+        unwrap_or_dbg!(self.socket.send_to(&buff, self.address).await);
     }
     async fn send_nack(&mut self, packet: u32) {
         if self.dissconnected {
             return;
         }
         let nack = Nack::new((packet, packet));
-        let buff = match encode(nack).await {
-            Ok(buff) => buff,
-            Err(e) => {
-                eprintln!("failed to encode nack {}", e);
-                return;
-            }
-        };
-        match self.socket.send_to(&buff, self.address).await {
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!("{}", e);
-                self.disconnected(DisconnectReason::Disconnect).await;
-            }
-        }
+        let buff = unwrap_or_dbg!(encode(nack).await);
+        unwrap_or_dbg!(self.socket.send_to(&buff, self.address).await);
     }
     async fn handle_ack(&mut self, buff: &[u8]) {
-        let ack = match decode::<Ack>(buff).await {
-            Ok(ack) => ack,
-            Err(e) => {
-                eprintln!("failed to decode ack {}", e);
-                return;
-            }
-        };
+        let ack = unwrap_or_return!(decode::<Ack>(buff).await);
         for sequence in ack.get_all() {
             self.packet_queue.recieved(sequence);
         }
     }
 
     async fn handle_nack(&mut self, buff: &[u8]) {
-        let nack = match decode::<Nack>(buff).await {
-            Ok(nack) => nack,
-            Err(e) => {
-                eprintln!("failed to decode nack {}", e);
-                return;
-            }
-        };
+        let nack = unwrap_or_return!(decode::<Nack>(buff).await);
         for sequence in nack.get_all() {
             self.packet_queue.resend(sequence);
         }
     }
 
     async fn handle_datagram(&mut self, buff: &[u8]) {
-        let frame_set = match FrameSet::decode(buff).await {
-            Ok(frameset) => frameset,
-            Err(e) => {
-                eprintln!("failed to decode frameset {}", e);
-                return;
-            }
-        };
+        let frame_set = unwrap_or_return!(FrameSet::decode(buff).await);
         self.ack_queue.add(frame_set.sequence_number);
         if self.ack_queue.get_missing_len() != 0 {
             for miss in self.ack_queue.get_missing() {
@@ -305,47 +252,17 @@ impl Connection {
         self.event_sender.try_send(event).is_err()
     }
     async fn flush_queue(&mut self) {
-        let mut error = false;
         let time = self.timer.elapsed().as_millis();
         for send_able in self.packet_queue.get_packet(time).clone() {
-            let frame_set = match send_able.encode().await {
-                Ok(buff) => buff,
-                Err(e) => {
-                    eprintln!("failed to encode frameset {}", e);
-                    return;
-                }
-            };
-            match self.socket.send_to(&frame_set, self.address).await {
-                Ok(_) => {}
-                Err(e) => {
-                    if !self.dissconnected {
-                        eprintln!("{}", e);
-                        error = true;
-                    }
-                }
-            }
-        }
-        if error && !self.dissconnected {
-            self.disconnected(DisconnectReason::Disconnect).await;
+            let frame_set = unwrap_or_dbg!(send_able.encode().await);
+            unwrap_or_dbg!(self.socket.send_to(&frame_set, self.address).await);
         }
     }
     async fn handle_connectionrequest(&mut self, payload: &[u8]) {
-        let p = match decode::<ConnectionRequest>(payload).await {
-            Ok(p) => p,
-            Err(e) => {
-                eprintln!("failed to decode connectionrequest {}", e);
-                return;
-            }
-        };
+        let p = unwrap_or_return!(decode::<ConnectionRequest>(payload).await);
 
         let reply = ConnectionRequestAccepted::new(self.address, p.time, self.time_stamp());
-        let buff = match encode::<ConnectionRequestAccepted>(reply).await {
-            Ok(buff) => buff,
-            Err(e) => {
-                eprintln!("failed to encode connectionrequestaccepted {}", e);
-                return;
-            }
-        };
+        let buff = unwrap_or_dbg!(encode::<ConnectionRequestAccepted>(reply).await);
         let frame = Frame::new(Reliability::ReliableOrdered, &buff);
         self.send(frame);
         self.message_index += 1;
@@ -356,26 +273,14 @@ impl Connection {
         }
     }
     async fn handle_connectionrequest_accepted(&mut self, payload: &[u8]) {
-        let accepted = match decode::<ConnectionRequestAccepted>(payload).await {
-            Ok(accepted) => accepted,
-            Err(e) => {
-                eprintln!("failed to decode connectionrequestaccepted {}", e);
-                return;
-            }
-        };
+        let accepted = unwrap_or_return!(decode::<ConnectionRequestAccepted>(payload).await);
 
         let newincoming = NewIncomingConnection {
             server_address: self.address,
             request_timestamp: accepted.request_timestamp,
             accepted_timestamp: accepted.accepted_timestamp,
         };
-        let buff = match encode(newincoming).await {
-            Ok(buff) => buff,
-            Err(e) => {
-                eprintln!("failed to encode newincomingconnection {}", e);
-                return;
-            }
-        };
+        let buff = unwrap_or_dbg!(encode(newincoming).await);
         let frame = Frame::new(Reliability::ReliableOrdered, &buff);
         self.send(frame);
         self.message_index += 1;
@@ -387,22 +292,10 @@ impl Connection {
         self.send_ping().await;
     }
     async fn handle_connectedping(&mut self, payload: &[u8]) {
-        let p = match decode::<ConnectedPing>(payload).await {
-            Ok(p) => p,
-            Err(e) => {
-                eprintln!("failed to decode connectedping {}", e);
-                return;
-            }
-        };
+        let p = unwrap_or_return!(decode::<ConnectedPing>(payload).await);
 
         let pong = ConnectedPong::new(p.client_timestamp, self.time_stamp());
-        let buff = match encode(pong).await {
-            Ok(buff) => buff,
-            Err(e) => {
-                eprintln!("failed to encode connectedpong {}", e);
-                return;
-            }
-        };
+        let buff = unwrap_or_dbg!(encode(pong).await);
 
         let mut frame = Frame::new(Reliability::ReliableOrdered, &buff);
         frame.message_index = self.message_index;

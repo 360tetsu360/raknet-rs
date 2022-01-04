@@ -9,6 +9,8 @@ use crate::server::{RaknetError, RaknetEvent};
 
 use crate::{connection::Connection, packets::*};
 
+use crate::macros::*;
+
 const RAKNET_PROTOCOL_VERSION: u8 = 0xA;
 
 pub struct Client {
@@ -24,7 +26,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub async fn new(remote_address: SocketAddr, online: bool) -> Self {
+    pub async fn new(remote_address: SocketAddr, online: bool) -> std::io::Result<Self> {
         let local: SocketAddr = {
             if online {
                 "0.0.0.0:0".parse().unwrap()
@@ -32,12 +34,8 @@ impl Client {
                 "127.0.0.1:0".parse().unwrap()
             }
         };
-        let socket = Arc::new(
-            UdpSocket::bind(local)
-                .await
-                .unwrap_or_else(|e| panic!("failed to bind socket {}", e)),
-        );
-        Self {
+        let socket = Arc::new(UdpSocket::bind(local).await?);
+        Ok(Self {
             socket,
             remote: remote_address,
             connection: Arc::new(Mutex::new(None)),
@@ -47,12 +45,12 @@ impl Client {
             time: Instant::now(),
             local,
             reveiver: Arc::new(Mutex::new(None)),
-        }
+        })
     }
 
     pub async fn listen(&mut self) {
         if self.connection.lock().await.as_ref().is_none() {
-            panic!("You must connect before start listen")
+            panic!("You must connect before listen")
         }
 
         let socket = self.socket.clone();
@@ -71,7 +69,6 @@ impl Client {
                                 RaknetError::RemoteClosed(remote),
                             ))
                         }
-                        eprintln!("{}", e);
                         continue;
                     }
                 };
@@ -136,7 +133,6 @@ impl Client {
                     if e.kind() == std::io::ErrorKind::ConnectionReset {
                         return Err(RaknetError::RemoteClosed(remote));
                     }
-                    eprintln!("{}", e);
                     continue;
                 }
             };
@@ -148,37 +144,13 @@ impl Client {
 
             match buff[0] {
                 OpenConnectionReply1::ID => {
-                    let reply1 = match decode::<OpenConnectionReply1>(buff).await {
-                        Ok(p) => p,
-                        Err(e) => {
-                            eprintln!("{}", e);
-                            continue;
-                        }
-                    };
+                    let reply1 = unwrap_or_continue!(decode::<OpenConnectionReply1>(buff).await);
                     let request2 = OpenConnectionRequest2::new(source, reply1.mtu_size, guid);
-                    let payload = match encode(request2).await {
-                        Ok(p) => p,
-                        Err(e) => {
-                            eprintln!("{}", e);
-                            continue;
-                        }
-                    };
-                    match socket.send_to(&payload, source).await {
-                        Ok(p) => p,
-                        Err(e) => {
-                            eprintln!("{}", e);
-                            continue;
-                        }
-                    };
+                    let payload = unwrap_or_continue!(encode(request2).await);
+                    unwrap_or_continue!(socket.send_to(&payload, source).await);
                 }
                 OpenConnectionReply2::ID => {
-                    match decode::<OpenConnectionReply2>(buff).await {
-                        Ok(p) => p,
-                        Err(e) => {
-                            eprintln!("{}", e);
-                            continue;
-                        }
-                    };
+                    unwrap_or_continue!(decode::<OpenConnectionReply2>(buff).await);
                     let (s, r) = tokio::sync::mpsc::channel::<RaknetEvent>(10);
                     *receiver2.lock().await = Some(r);
                     let connection = Connection::new(source, socket.clone(), guid, timer, mtu, s);
@@ -187,31 +159,19 @@ impl Client {
                     return Ok(());
                 }
                 IncompatibleProtocolVersion::ID => {
-                    let version = match decode::<IncompatibleProtocolVersion>(buff).await {
-                        Ok(p) => p,
-                        Err(e) => {
-                            eprintln!("{}", e);
-                            continue;
-                        }
-                    };
+                    let version =
+                        unwrap_or_continue!(decode::<IncompatibleProtocolVersion>(buff).await);
                     return Err(RaknetError::IncompatibleProtocolVersion(
                         version.server_protocol,
                         RAKNET_PROTOCOL_VERSION,
                     ));
                 }
                 AlreadyConnected::ID => {
-                    let _alredy_connected = match decode::<AlreadyConnected>(buff).await {
-                        Ok(p) => p,
-                        Err(e) => {
-                            eprintln!("{}", e);
-                            continue;
-                        }
-                    };
+                    let _alredy_connected =
+                        unwrap_or_continue!(decode::<AlreadyConnected>(buff).await);
                     return Err(RaknetError::AlreadyConnected(remote));
                 }
-                _ => {
-                    println!("unknown packet ID {:x}", buff[0]);
-                }
+                _ => {}
             }
         }
     }
