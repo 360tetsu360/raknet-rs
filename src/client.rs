@@ -5,8 +5,7 @@ use tokio::{
     sync::{mpsc::Receiver, Mutex},
 };
 
-use crate::server::{RaknetError, RaknetEvent};
-
+use crate::rak::{RaknetError, RaknetEvent};
 use crate::{connection::Connection, packets::*};
 
 use crate::macros::*;
@@ -14,15 +13,16 @@ use crate::macros::*;
 const RAKNET_PROTOCOL_VERSION: u8 = 0xA;
 
 pub struct Client {
-    pub socket: Arc<UdpSocket>,
-    remote: SocketAddr,
+    socket: Arc<UdpSocket>,
     connection: Arc<Mutex<Option<Connection>>>,
     event: Arc<Mutex<Vec<RaknetEvent>>>,
-    guid: u64,
-    mtu: u16,
     time: Instant,
-    local: SocketAddr,
     reveiver: Arc<Mutex<Option<Receiver<RaknetEvent>>>>,
+
+    pub guid: u64,
+    pub mtu: u16,
+    pub remote: SocketAddr,
+    pub local: SocketAddr,
 }
 
 impl Client {
@@ -86,7 +86,7 @@ impl Client {
 
         tokio::spawn(async move {
             loop {
-                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
                 connections.lock().await.as_mut().unwrap().update().await;
             }
         });
@@ -196,9 +196,5 @@ impl Client {
             }
         }
         Ok(events)
-    }
-
-    pub fn address(&self) -> SocketAddr {
-        self.local
     }
 }

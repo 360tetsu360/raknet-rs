@@ -59,7 +59,7 @@ impl PacketQueue {
             self.queue.insert(frame_set.sequence_number, frame_set);
         }
     }
-    pub fn recieved(&mut self, sequence: u32) {
+    pub fn received(&mut self, sequence: u32) {
         if self.queue.contains_key(&sequence) {
             self.queue.remove(&sequence);
             self.time_passed.remove(&sequence);
@@ -141,9 +141,5 @@ mod packet_q_test {
         let frame = Frame::new(Reliability::Reliable, &[0u8; 100]);
         packetq.add_frame(frame);
         packetq.get_packet(time.elapsed().as_millis());
-
-        let time_elap = std::time::Duration::from_millis(1200);
-
-        std::thread::sleep(time_elap);
     }
 }

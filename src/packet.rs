@@ -182,3 +182,28 @@ impl RaknetPacket {
         }
     }
 }
+
+#[test]
+fn ack_queue() {
+    let mut y = ACKQueue::new();
+    for x in 0..10 {
+        y.add(x);
+    }
+    for x in 11..20 {
+        y.add(x);
+    }
+    //y.add(10);
+    let z = y.get_send_able_and_clear();
+    println!("{{");
+    for a in z {
+        println!("  ({},{}),", a.0, a.1);
+    }
+    println!("}}");
+    y.add(10);
+    let z = y.get_send_able_and_clear();
+    println!("{{");
+    for a in z {
+        println!("  ({},{}),", a.0, a.1);
+    }
+    println!("}}");
+}

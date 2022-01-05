@@ -360,4 +360,10 @@ async fn raknet_packet() {
     let buff = frame_buff.get_raw_payload();
     let mut reader = Reader::new(&buff);
     let _sequenced_frame_decoded = Frame::decode(&mut reader).await.unwrap();
+
+    let disconnected = decode::<Disconnected>(&[0x15]).await.unwrap();
+    debug_assert_eq!(&encode(disconnected).await.unwrap(), &[0x15]);
 }
+
+#[test]
+fn event_error() {}

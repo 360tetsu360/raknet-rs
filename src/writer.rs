@@ -1,3 +1,4 @@
+use crate::packets::MAGIC;
 use crate::reader::Endian;
 use std::{
     io::{Cursor, Result},
@@ -73,11 +74,7 @@ impl Writer {
         self.write(raw).await
     }
     pub async fn write_magic(&mut self) -> Result<usize> {
-        let magic = [
-            0x00, 0xff, 0xff, 0x00, 0xfe, 0xfe, 0xfe, 0xfe, 0xfd, 0xfd, 0xfd, 0xfd, 0x12, 0x34,
-            0x56, 0x78,
-        ];
-        self.cursor.write(&magic).await
+        self.cursor.write(&MAGIC).await
     }
     pub async fn write_address(&mut self, address: SocketAddr) -> Result<()> {
         if address.is_ipv4() {

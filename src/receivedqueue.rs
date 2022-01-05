@@ -2,13 +2,13 @@ use std::collections::HashMap;
 
 use crate::{packet::SplitPacketQueue, packets::frame::Frame};
 
-pub struct RecievdQueue {
+pub struct ReceivedQueue {
     min: u32,
     max: u32,
     packet_queue: HashMap<u32, Frame>,
     splits: SplitPacketQueue,
 }
-impl RecievdQueue {
+impl ReceivedQueue {
     pub fn new() -> Self {
         Self {
             min: 0,

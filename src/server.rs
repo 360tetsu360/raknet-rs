@@ -1,73 +1,25 @@
 use rand::random;
-use std::{
-    collections::HashMap, fmt::Display, io::Result, net::SocketAddr, sync::Arc, time::Instant,
-};
+use std::{collections::HashMap, io::Result, net::SocketAddr, sync::Arc, time::Instant};
 use tokio::{
     net::UdpSocket,
     sync::{mpsc::Receiver, Mutex},
 };
 
-use crate::{connection::Connection, packet::RaknetPacket, packets::*};
-
 use crate::macros::*;
+use crate::RaknetEvent;
+use crate::{connection::Connection, packets::*};
 
 const RAKNET_PROTOCOL_VERSION: u8 = 0xA;
 
-#[derive(Clone, Copy)]
-pub enum DisconnectReason {
-    Timeout,
-    Disconnect,
-}
-pub enum RaknetEvent {
-    Packet(RaknetPacket),
-    Connected(SocketAddr, u64),
-    Disconnected(SocketAddr, u64, DisconnectReason),
-    Error(SocketAddr, RaknetError),
-}
-
-impl Clone for RaknetEvent {
-    fn clone(&self) -> Self {
-        match self {
-            RaknetEvent::Packet(p) => RaknetEvent::Packet(p.clone()),
-            RaknetEvent::Connected(p, e) => RaknetEvent::Connected(*p, *e),
-            RaknetEvent::Disconnected(p, e, r) => RaknetEvent::Disconnected(*p, *e, *r),
-            RaknetEvent::Error(p, err) => RaknetEvent::Error(*p, err.clone()),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum RaknetError {
-    IncompatibleProtocolVersion(u8, u8), //Server,Client
-    AlreadyConnected(SocketAddr),
-    RemoteClosed(SocketAddr),
-    Other(String),
-}
-
-impl Display for RaknetError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::IncompatibleProtocolVersion(server, client) => {
-                write!(f, "Different Protocol Version: {} {}", server, client)
-            }
-            Self::AlreadyConnected(s) => write!(f, "AlreadyConnected: {}", s),
-            Self::RemoteClosed(s) => write!(f, "RemoteClosed : {}", s),
-            Self::Other(s) => write!(f, "{}", s),
-        }
-    }
-}
-
-impl std::error::Error for RaknetError {}
-
 pub struct Server {
-    pub socket: Option<Arc<UdpSocket>>,
-    pub connection: Arc<Mutex<HashMap<SocketAddr, Arc<Mutex<Connection>>>>>,
-    pub id: u64,
-    pub title: Arc<Mutex<String>>,
+    socket: Option<Arc<UdpSocket>>,
+    connection: Arc<Mutex<HashMap<SocketAddr, Arc<Mutex<Connection>>>>>,
+    title: Arc<Mutex<String>>,
     time: Instant,
-    local_addr: SocketAddr,
     connected_clients: Arc<Mutex<Vec<u64>>>,
     receivers: Arc<Mutex<Vec<Receiver<RaknetEvent>>>>,
+    pub local_addr: SocketAddr,
+    pub id: u64,
 }
 
 impl Server {
@@ -84,19 +36,15 @@ impl Server {
         }
     }
 
-    pub async fn listen(&mut self) {
-        self.socket = Some(Arc::new(
-            UdpSocket::bind(self.local_addr)
-                .await
-                .unwrap_or_else(|e| panic!("failed to bind socket {}", e)),
-        ));
-        let socket2 = self.socket.clone().expect("failed to clone Arc<UdpSocket>");
+    pub async fn listen(&mut self) -> std::io::Result<()> {
+        self.socket = Some(Arc::new(UdpSocket::bind(self.local_addr).await?));
+        let socket2 = self.socket.clone().unwrap();
         let connections2 = self.connection.clone();
         let connected_client = self.connected_clients.clone();
         let id = self.id;
         let motd = self.title.clone();
         let time = self.time;
-        let reciever = self.receivers.clone();
+        let receiver = self.receivers.clone();
         tokio::spawn(async move {
             let mut v = [0u8; 1500];
             loop {
@@ -106,7 +54,7 @@ impl Server {
                 let socket3 = socket2.clone();
                 let connected_client2 = connected_client.clone();
                 let motd2 = motd.clone();
-                let receiver2 = reciever.clone();
+                let receiver2 = receiver.clone();
 
                 tokio::spawn(async move {
                     if !connections3.lock().await.contains_key(&source) {
@@ -189,7 +137,7 @@ impl Server {
 
         tokio::spawn(async move {
             loop {
-                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
                 for conn in connections.lock().await.values() {
                     let conn2 = conn.clone();
                     tokio::spawn(async move {
@@ -198,14 +146,16 @@ impl Server {
                 }
             }
         });
+
+        Ok(())
     }
 
     pub async fn recv(&self) -> Result<Vec<RaknetEvent>> {
         let mut events: Vec<RaknetEvent> = vec![];
         let mut disconnected_clients = vec![];
 
-        for (index, reciever) in self.receivers.lock().await.iter_mut().enumerate() {
-            while let Ok(event) = reciever.try_recv() {
+        for (index, receiver) in self.receivers.lock().await.iter_mut().enumerate() {
+            while let Ok(event) = receiver.try_recv() {
                 if let RaknetEvent::Disconnected(addr, _guid, _reason) = event {
                     disconnected_clients.push((addr, index));
                 }

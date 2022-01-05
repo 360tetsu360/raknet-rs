@@ -6,6 +6,8 @@ use std::{
 use tokio::io::AsyncReadExt;
 use tokio_byteorder::{AsyncReadBytesExt, BigEndian, LittleEndian};
 
+use crate::packets::MAGIC;
+
 pub enum Endian {
     Big,
     Little,
@@ -75,11 +77,7 @@ impl<'a> Reader<'a> {
     pub async fn read_magic(&mut self) -> Result<bool> {
         let mut magic = [0; 16];
         self.cursor.read_exact(&mut magic).await?;
-        let offline_magic = [
-            0x00, 0xff, 0xff, 0x00, 0xfe, 0xfe, 0xfe, 0xfe, 0xfd, 0xfd, 0xfd, 0xfd, 0x12, 0x34,
-            0x56, 0x78,
-        ];
-        Ok(magic == offline_magic)
+        Ok(magic == MAGIC)
     }
     pub async fn read_address(&mut self) -> Result<SocketAddr> {
         let ip_ver = self.read_u8().await?;

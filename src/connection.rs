@@ -3,8 +3,8 @@ use crate::{
     packet::{ACKQueue, RaknetPacket},
     packetqueue::PacketQueue,
     packets::*,
-    recievedqueue::RecievdQueue,
-    server::{DisconnectReason, RaknetEvent},
+    receivedqueue::ReceivedQueue,
+    DisconnectReason, RaknetEvent,
 };
 use std::{
     collections::VecDeque,
@@ -27,13 +27,13 @@ pub struct Connection {
     pub guid: u64,
     pub mtu: u16,
     pub timer: Instant,
-    pub last_recieve: u128,
+    pub last_receive: u128,
     ack_queue: ACKQueue,
     packet_queue: PacketQueue,
     message_index: u32,
     order_index: u32,
     split_id: u16,
-    recieved: RecievdQueue,
+    received: ReceivedQueue,
     last_ping: u128,
     dissconnected: bool,
     recovery_queue: VecDeque<RaknetEvent>,
@@ -56,13 +56,13 @@ impl Connection {
             guid,
             mtu,
             timer,
-            last_recieve: time,
+            last_receive: time,
             ack_queue: ACKQueue::new(),
             packet_queue: PacketQueue::new(mtu, time),
             message_index: 0,
             order_index: 0,
             split_id: 0,
-            recieved: RecievdQueue::new(),
+            received: ReceivedQueue::new(),
             last_ping: time,
             dissconnected: false,
             recovery_queue: VecDeque::new(),
@@ -73,7 +73,7 @@ impl Connection {
         self.flush_ack().await;
         self.recovery();
         let time = self.timer.elapsed().as_millis();
-        if (time - self.last_recieve) > 10000 {
+        if (time - self.last_receive) > 10000 {
             self.disconnect();
             self.disconnected(DisconnectReason::Timeout).await;
         }
@@ -102,7 +102,7 @@ impl Connection {
     pub async fn handle(&mut self, buff: &[u8]) {
         let header = buff[0];
 
-        self.last_recieve = self.timer.elapsed().as_millis();
+        self.last_receive = self.timer.elapsed().as_millis();
 
         if header & ACK_FLAG != 0 {
             self.handle_ack(buff).await;
@@ -143,7 +143,7 @@ impl Connection {
     async fn handle_ack(&mut self, buff: &[u8]) {
         let ack = unwrap_or_return!(decode::<Ack>(buff).await);
         for sequence in ack.get_all() {
-            self.packet_queue.recieved(sequence);
+            self.packet_queue.received(sequence);
         }
     }
 
@@ -163,15 +163,15 @@ impl Connection {
             }
         }
         for frame in frame_set.datas {
-            self.recieve_packet(frame).await;
+            self.receive_packet(frame).await;
         }
     }
-    async fn recieve_packet(&mut self, frame: Frame) {
+    async fn receive_packet(&mut self, frame: Frame) {
         if !frame.reliability.sequenced_or_ordered() {
             self.handle_packet(&frame.data).await;
         } else {
-            self.recieved.add(frame);
-            for packet in self.recieved.get_all() {
+            self.received.add(frame);
+            for packet in self.received.get_all() {
                 self.handle_packet(&packet.data).await;
             }
         }

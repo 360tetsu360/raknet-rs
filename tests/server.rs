@@ -1,4 +1,3 @@
-use raknet::packet::ACKQueue;
 use raknet::reader::{Endian, Reader};
 use raknet::writer::Writer;
 use raknet::{Client, Ping, RaknetEvent, Server};
@@ -15,31 +14,6 @@ async fn ping() {
         .unwrap();
     let pong = pinger.ping(remote).await.unwrap();
     println!("{}", pong);
-}
-
-#[test]
-fn ack_queue() {
-    let mut y = ACKQueue::new();
-    for x in 0..10 {
-        y.add(x);
-    }
-    for x in 11..20 {
-        y.add(x);
-    }
-    //y.add(10);
-    let z = y.get_send_able_and_clear();
-    println!("{{");
-    for a in z {
-        println!("  ({},{}),", a.0, a.1);
-    }
-    println!("}}");
-    y.add(10);
-    let z = y.get_send_able_and_clear();
-    println!("{{");
-    for a in z {
-        println!("  ({},{}),", a.0, a.1);
-    }
-    println!("}}");
 }
 
 const BUFFER: [u8; 8] = [0x0, 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7];
@@ -107,7 +81,7 @@ async fn server_test() {
                 local,
             "MCPE;§5raknet rs;390;1.17.42;0;10;13253860892328930865;Bedrock level;Survival;1;19132;19133;".to_owned()
             );
-        server.listen().await;
+        server.listen().await.unwrap();
         loop {
             tokio::time::sleep(std::time::Duration::from_millis(50)).await;
             let events = server.recv().await.unwrap();
