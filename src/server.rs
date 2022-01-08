@@ -107,6 +107,7 @@ impl Server {
                                         source,
                                         socket3.clone(),
                                         id,
+                                        p.guid,
                                         time,
                                         p.mtu,
                                         s,

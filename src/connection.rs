@@ -25,6 +25,7 @@ pub struct Connection {
     socket: Arc<UdpSocket>,
     pub event_sender: Sender<RaknetEvent>,
     pub guid: u64,
+    pub opponent_guid : u64,
     pub mtu: u16,
     pub timer: Instant,
     pub last_receive: u128,
@@ -44,6 +45,7 @@ impl Connection {
         address: SocketAddr,
         socket: Arc<UdpSocket>,
         guid: u64,
+        opponent_guid : u64,
         timer: Instant,
         mtu: u16,
         sender: Sender<RaknetEvent>,
@@ -54,6 +56,7 @@ impl Connection {
             socket,
             event_sender: sender,
             guid,
+            opponent_guid,
             mtu,
             timer,
             last_receive: time,
@@ -267,9 +270,9 @@ impl Connection {
         self.send(frame);
         self.message_index += 1;
         self.order_index += 1;
-        if self.put_event(RaknetEvent::Connected(self.address, self.guid)) {
+        if self.put_event(RaknetEvent::Connected(self.address, self.opponent_guid)) {
             self.recovery_queue
-                .push_back(RaknetEvent::Connected(self.address, self.guid));
+                .push_back(RaknetEvent::Connected(self.address, self.opponent_guid));
         }
     }
     async fn handle_connectionrequest_accepted(&mut self, payload: &[u8]) {
@@ -285,9 +288,9 @@ impl Connection {
         self.send(frame);
         self.message_index += 1;
         self.order_index += 1;
-        if self.put_event(RaknetEvent::Connected(self.address, self.guid)) {
+        if self.put_event(RaknetEvent::Connected(self.address, self.opponent_guid)) {
             self.recovery_queue
-                .push_back(RaknetEvent::Connected(self.address, self.guid));
+                .push_back(RaknetEvent::Connected(self.address, self.opponent_guid));
         }
         self.send_ping().await;
     }
@@ -319,7 +322,7 @@ impl Connection {
 
     async fn disconnected(&mut self, reason: DisconnectReason) {
         self.dissconnected = true;
-        if self.put_event(RaknetEvent::Disconnected(self.address, self.guid, reason)) {
+        if self.put_event(RaknetEvent::Disconnected(self.address, self.opponent_guid, reason)) {
             self.recovery_queue.push_back(RaknetEvent::Disconnected(
                 self.address,
                 self.guid,

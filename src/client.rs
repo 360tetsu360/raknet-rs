@@ -150,10 +150,10 @@ impl Client {
                     unwrap_or_continue!(socket.send_to(&payload, source).await);
                 }
                 OpenConnectionReply2::ID => {
-                    unwrap_or_continue!(decode::<OpenConnectionReply2>(buff).await);
+                    let reply2 = unwrap_or_continue!(decode::<OpenConnectionReply2>(buff).await);
                     let (s, r) = tokio::sync::mpsc::channel::<RaknetEvent>(10);
                     *receiver2.lock().await = Some(r);
-                    let connection = Connection::new(source, socket.clone(), guid, timer, mtu, s);
+                    let connection = Connection::new(source, socket.clone(), guid, reply2.guid, timer, mtu, s);
                     *connection2.lock().await = Some(connection);
                     connection2.lock().await.as_mut().unwrap().connect().await;
                     return Ok(());
