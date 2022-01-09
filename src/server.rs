@@ -1,5 +1,5 @@
 use rand::random;
-use std::{collections::HashMap, io::Result, net::SocketAddr, sync::Arc, time::Instant};
+use std::{collections::HashMap, io::Result, net::SocketAddr, sync::Arc};
 use tokio::{
     net::UdpSocket,
     sync::{mpsc::Receiver, Mutex},
@@ -15,7 +15,6 @@ pub struct Server {
     socket: Option<Arc<UdpSocket>>,
     connection: Arc<Mutex<HashMap<SocketAddr, Arc<Mutex<Connection>>>>>,
     title: Arc<Mutex<String>>,
-    time: Instant,
     connected_clients: Arc<Mutex<Vec<u64>>>,
     receivers: Arc<Mutex<Vec<Receiver<RaknetEvent>>>>,
     pub local_addr: SocketAddr,
@@ -29,7 +28,6 @@ impl Server {
             connection: Arc::new(Mutex::new(HashMap::new())),
             id: random::<u64>(),
             title: Arc::new(Mutex::new(title)),
-            time: Instant::now(),
             local_addr: address,
             connected_clients: Arc::new(Mutex::new(vec![])),
             receivers: Arc::new(Mutex::new(vec![])),
@@ -43,7 +41,6 @@ impl Server {
         let connected_client = self.connected_clients.clone();
         let id = self.id;
         let motd = self.title.clone();
-        let time = self.time;
         let receiver = self.receivers.clone();
         tokio::spawn(async move {
             let mut v = [0u8; 1500];
@@ -108,9 +105,9 @@ impl Server {
                                         socket3.clone(),
                                         id,
                                         p.guid,
-                                        time,
                                         p.mtu,
                                         s,
+                                        crate::connection::RaknetType::Server,
                                     ))),
                                 );
                                 connected_client2.lock().await.push(p.guid);

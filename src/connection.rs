@@ -4,15 +4,9 @@ use crate::{
     packetqueue::PacketQueue,
     packets::*,
     receivedqueue::ReceivedQueue,
-    DisconnectReason, RaknetEvent,
+    time, DisconnectReason, RaknetEvent,
 };
-use std::{
-    collections::VecDeque,
-    convert::TryInto,
-    net::SocketAddr,
-    sync::Arc,
-    time::{Instant, SystemTime, UNIX_EPOCH},
-};
+use std::{collections::VecDeque, convert::TryInto, net::SocketAddr, sync::Arc};
 use tokio::{net::UdpSocket, sync::mpsc::Sender};
 const DATAGRAM_FLAG: u8 = 0x80;
 
@@ -20,14 +14,18 @@ const ACK_FLAG: u8 = 0x40;
 
 const NACK_FLAG: u8 = 0x20;
 
+pub enum RaknetType {
+    Client,
+    Server,
+}
+
 pub struct Connection {
     pub address: SocketAddr,
     socket: Arc<UdpSocket>,
     pub event_sender: Sender<RaknetEvent>,
     pub guid: u64,
-    pub opponent_guid : u64,
+    pub opponent_guid: u64,
     pub mtu: u16,
-    pub timer: Instant,
     pub last_receive: u128,
     ack_queue: ACKQueue,
     packet_queue: PacketQueue,
@@ -38,6 +36,7 @@ pub struct Connection {
     last_ping: u128,
     dissconnected: bool,
     recovery_queue: VecDeque<RaknetEvent>,
+    rak_type: RaknetType,
 }
 
 impl Connection {
@@ -45,12 +44,12 @@ impl Connection {
         address: SocketAddr,
         socket: Arc<UdpSocket>,
         guid: u64,
-        opponent_guid : u64,
-        timer: Instant,
+        opponent_guid: u64,
         mtu: u16,
         sender: Sender<RaknetEvent>,
+        rak_type: RaknetType,
     ) -> Self {
-        let time = timer.elapsed().as_millis();
+        let time = time();
         Self {
             address,
             socket,
@@ -58,7 +57,6 @@ impl Connection {
             guid,
             opponent_guid,
             mtu,
-            timer,
             last_receive: time,
             ack_queue: ACKQueue::new(),
             packet_queue: PacketQueue::new(mtu, time),
@@ -69,13 +67,14 @@ impl Connection {
             last_ping: time,
             dissconnected: false,
             recovery_queue: VecDeque::new(),
+            rak_type,
         }
     }
     pub async fn update(&mut self) {
         self.flush_queue().await;
         self.flush_ack().await;
         self.recovery();
-        let time = self.timer.elapsed().as_millis();
+        let time = time();
         if (time - self.last_receive) > 10000 {
             self.disconnect();
             self.disconnected(DisconnectReason::Timeout).await;
@@ -96,8 +95,7 @@ impl Connection {
         }
     }
     pub async fn connect(&mut self) {
-        let request =
-            ConnectionRequest::new(self.guid, self.timer.elapsed().as_millis() as i64, false);
+        let request = ConnectionRequest::new(self.guid, time() as i64, false);
         let buff = unwrap_or_dbg!(encode(request).await);
         let frame = Frame::new(Reliability::Reliable, &buff);
         self.send(frame);
@@ -105,7 +103,7 @@ impl Connection {
     pub async fn handle(&mut self, buff: &[u8]) {
         let header = buff[0];
 
-        self.last_receive = self.timer.elapsed().as_millis();
+        self.last_receive = time();
 
         if header & ACK_FLAG != 0 {
             self.handle_ack(buff).await;
@@ -255,13 +253,17 @@ impl Connection {
         self.event_sender.try_send(event).is_err()
     }
     async fn flush_queue(&mut self) {
-        let time = self.timer.elapsed().as_millis();
+        let time = time();
         for send_able in self.packet_queue.get_packet(time).clone() {
             let frame_set = unwrap_or_dbg!(send_able.encode().await);
             unwrap_or_dbg!(self.socket.send_to(&frame_set, self.address).await);
         }
     }
     async fn handle_connectionrequest(&mut self, payload: &[u8]) {
+        if let RaknetType::Client = self.rak_type {
+            return;
+        }
+
         let p = unwrap_or_return!(decode::<ConnectionRequest>(payload).await);
 
         let reply = ConnectionRequestAccepted::new(self.address, p.time, self.time_stamp());
@@ -276,6 +278,10 @@ impl Connection {
         }
     }
     async fn handle_connectionrequest_accepted(&mut self, payload: &[u8]) {
+        if let RaknetType::Server = self.rak_type {
+            return;
+        }
+
         let accepted = unwrap_or_return!(decode::<ConnectionRequestAccepted>(payload).await);
 
         let newincoming = NewIncomingConnection {
@@ -322,7 +328,11 @@ impl Connection {
 
     async fn disconnected(&mut self, reason: DisconnectReason) {
         self.dissconnected = true;
-        if self.put_event(RaknetEvent::Disconnected(self.address, self.opponent_guid, reason)) {
+        if self.put_event(RaknetEvent::Disconnected(
+            self.address,
+            self.opponent_guid,
+            reason,
+        )) {
             self.recovery_queue.push_back(RaknetEvent::Disconnected(
                 self.address,
                 self.guid,
@@ -331,12 +341,7 @@ impl Connection {
         }
     }
 
-    pub fn time_stamp(&mut self) -> i64 {
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis()
-            .try_into()
-            .unwrap_or(0)
+    pub fn time_stamp(&self) -> i64 {
+        time().try_into().unwrap_or(0)
     }
 }

@@ -14,3 +14,13 @@ pub mod reader;
 mod receivedqueue;
 pub mod writer;
 pub use crate::rak::*;
+
+pub(crate) fn time() -> u128 {
+    std::convert::TryInto::try_into(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis(),
+    )
+    .unwrap_or(0)
+}

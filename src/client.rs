@@ -1,5 +1,5 @@
 use rand::random;
-use std::{io::Result, net::SocketAddr, panic, sync::Arc, time::Instant};
+use std::{io::Result, net::SocketAddr, panic, sync::Arc};
 use tokio::{
     net::UdpSocket,
     sync::{mpsc::Receiver, Mutex},
@@ -16,7 +16,6 @@ pub struct Client {
     socket: Arc<UdpSocket>,
     connection: Arc<Mutex<Option<Connection>>>,
     event: Arc<Mutex<Vec<RaknetEvent>>>,
-    time: Instant,
     reveiver: Arc<Mutex<Option<Receiver<RaknetEvent>>>>,
 
     pub guid: u64,
@@ -42,7 +41,6 @@ impl Client {
             event: Arc::new(Mutex::new(vec![])),
             guid: random::<u64>(),
             mtu: 1492,
-            time: Instant::now(),
             local,
             reveiver: Arc::new(Mutex::new(None)),
         })
@@ -122,7 +120,6 @@ impl Client {
         let connection2 = self.connection.clone();
         let guid = self.guid;
         let mtu = self.mtu;
-        let timer = self.time;
         let remote = self.remote;
         let receiver2 = self.reveiver.clone();
         let mut v = [0u8; 1500];
@@ -153,7 +150,15 @@ impl Client {
                     let reply2 = unwrap_or_continue!(decode::<OpenConnectionReply2>(buff).await);
                     let (s, r) = tokio::sync::mpsc::channel::<RaknetEvent>(10);
                     *receiver2.lock().await = Some(r);
-                    let connection = Connection::new(source, socket.clone(), guid, reply2.guid, timer, mtu, s);
+                    let connection = Connection::new(
+                        source,
+                        socket.clone(),
+                        guid,
+                        reply2.guid,
+                        mtu,
+                        s,
+                        crate::connection::RaknetType::Client,
+                    );
                     *connection2.lock().await = Some(connection);
                     connection2.lock().await.as_mut().unwrap().connect().await;
                     return Ok(());
