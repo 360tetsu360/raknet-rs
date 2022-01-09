@@ -196,12 +196,13 @@ impl Connection {
                 self.disconnected(DisconnectReason::Disconnect).await;
             }
             _ => {
-                let rak_packet = RaknetPacket::new(self.address, self.guid, payload.to_vec());
+                let rak_packet =
+                    RaknetPacket::new(self.address, self.opponent_guid, payload.to_vec());
                 if self.put_event(RaknetEvent::Packet(rak_packet)) {
                     self.recovery_queue
                         .push_back(RaknetEvent::Packet(RaknetPacket::new(
                             self.address,
-                            self.guid,
+                            self.opponent_guid,
                             payload.to_vec(),
                         )));
                 }

@@ -7,7 +7,7 @@ async fn main() {
             local,
         "MCPE;§5raknet rs;390;1.17.42;0;10;13253860892328930865;Bedrock level;Survival;1;19132;19133;".to_owned()
         );
-    server.listen().await;
+    server.listen().await.unwrap();
     loop {
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         let events = server.recv().await.unwrap();
