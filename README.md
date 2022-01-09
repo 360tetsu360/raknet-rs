@@ -5,9 +5,9 @@ Pure [Rust](https://www.rust-lang.org/) implementation of [Raknet](http://www.je
 Client
 ```rs
     let mut remote = "127.0.0.1:19132".to_socket_addrs().unwrap();
-    let mut client = Client::new(remote.next().unwrap(), true);
+    let mut client = Client::new(remote.next().unwrap(), true).await.unwrap();
+    client.connect().await.unwrap();
     client.listen().await;
-    client.connect().await;
     loop {
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
         let events = client.recv().await.unwrap();
