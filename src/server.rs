@@ -47,6 +47,10 @@ impl Server {
             loop {
                 let (size, source) = unwrap_or_return!(socket2.recv_from(&mut v).await);
 
+                if size == 0 {
+                    continue;
+                }
+                
                 let connections3 = connections2.clone();
                 let socket3 = socket2.clone();
                 let connected_client2 = connected_client.clone();

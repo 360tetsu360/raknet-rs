@@ -71,7 +71,7 @@ impl Client {
                     }
                 };
 
-                if source != remote {
+                if source != remote || size == 0 {
                     continue;
                 }
 
@@ -133,6 +133,11 @@ impl Client {
                     continue;
                 }
             };
+
+            if size == 0 {
+                continue;
+            }
+
             let buff = &v[..size];
 
             if !source.eq(&remote) {
