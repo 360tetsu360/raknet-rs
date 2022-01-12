@@ -13,10 +13,11 @@ pub struct OpenConnectionReply1 {
 
 impl OpenConnectionReply1 {
     pub fn new(guid: u64, use_encryption: bool, mtu_size: u16) -> Self {
+        let encryption = use_encryption as u8;
         Self {
             _magic: true,
             guid,
-            use_encryption: use_encryption as u8,
+            use_encryption: encryption,
             mtu_size,
         }
     }

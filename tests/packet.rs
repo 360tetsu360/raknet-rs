@@ -197,7 +197,9 @@ const INCOMPATIBLE_PROTOCOL_VERSION_DATA: [u8; 26] = [
     0x56, 0x78, 0xa2, 0xa8, 0x7f, 0xa9, 0xae, 0xe7, 0xe2, 0x6b,
 ];
 const ACK_DATA: [u8; 7] = [0xc0, 0x00, 0x01, 0x01, 0x02, 0x00, 0x00];
+const ACK_DATA2: [u8; 10] = [0xc0, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x02, 0x00, 0x00];
 const NACK_DATA: [u8; 7] = [0xa0, 0x00, 0x01, 0x01, 0x0d, 0x00, 0x00];
+const NACK_DATA2: [u8; 10] = [0xa0, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x02, 0x00, 0x00];
 
 const CONNECTEDPING_DATA: [u8; 9] = [0x00, 0x00, 0x00, 0x00, 0x00, 0x19, 0x4f, 0xc3, 0xe1];
 
@@ -323,9 +325,17 @@ async fn raknet_packet() {
     let ack_encoded = encode::<Ack>(ack).await.unwrap();
     debug_assert_eq!(&ack_encoded, &ACK_DATA);
 
+    let ack2 = decode::<Ack>(&ACK_DATA2).await.unwrap();
+    let ack2_encoded = encode::<Ack>(ack2).await.unwrap();
+    debug_assert_eq!(&ack2_encoded, &ACK_DATA2);
+
     let nack = decode::<Nack>(&NACK_DATA).await.unwrap();
     let nack_encoded = encode::<Nack>(nack).await.unwrap();
     debug_assert_eq!(&nack_encoded, &NACK_DATA);
+
+    let nack2 = decode::<Nack>(&NACK_DATA2).await.unwrap();
+    let nack2_encoded = encode::<Nack>(nack2).await.unwrap();
+    debug_assert_eq!(&nack2_encoded, &NACK_DATA2);
 
     let connected_ping = decode::<ConnectedPing>(&CONNECTEDPING_DATA).await.unwrap();
     let connected_ping_encoded = encode::<ConnectedPing>(connected_ping).await.unwrap();
@@ -363,6 +373,26 @@ async fn raknet_packet() {
 
     let disconnected = decode::<Disconnected>(&[0x15]).await.unwrap();
     debug_assert_eq!(&encode(disconnected).await.unwrap(), &[0x15]);
+}
+
+async fn get_encoded_len(f: Frame) -> usize {
+    let mut data = Writer::new(vec![]);
+    f.encode(&mut data).await.unwrap();
+    data.get_raw_payload().len()
+}
+
+#[tokio::test]
+async fn frame() {
+    let frame = Frame::new(Reliability::Unreliable, &[0u8; 10]);
+    debug_assert_eq!(frame.length(), get_encoded_len(frame).await);
+    let frame = Frame::new(Reliability::UnreliableSequenced, &[0u8; 10]);
+    debug_assert_eq!(frame.length(), get_encoded_len(frame).await);
+    let frame = Frame::new(Reliability::Reliable, &[0u8; 10]);
+    debug_assert_eq!(frame.length(), get_encoded_len(frame).await);
+    let frame = Frame::new(Reliability::ReliableOrdered, &[0u8; 10]);
+    debug_assert_eq!(frame.length(), get_encoded_len(frame).await);
+    let frame = Frame::new(Reliability::ReliableSequenced, &[0u8; 10]);
+    debug_assert_eq!(frame.length(), get_encoded_len(frame).await);
 }
 
 #[test]

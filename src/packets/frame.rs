@@ -1,7 +1,10 @@
 use std::io::Result;
 
 use crate::{
-    reader::{Endian, Reader},
+    reader::{
+        Endian::{self, Big, Little},
+        Reader,
+    },
     writer::Writer,
 };
 
@@ -106,16 +109,12 @@ impl Frame {
             header |= SPLIT_FLAG;
         }
         cursor.write_u8(header).await?;
-        cursor
-            .write_u16((self.data.len() * 8) as u16, Endian::Big)
-            .await?;
+        cursor.write_u16((self.data.len() * 8) as u16, Big).await?;
         if self.reliability.reliable() {
             cursor.write_u24(self.message_index, Endian::Little).await?;
         }
         if self.reliability.sequenced() {
-            cursor
-                .write_u24(self.sequence_index, Endian::Little)
-                .await?;
+            cursor.write_u24(self.sequence_index, Little).await?;
         }
         if self.reliability.sequenced_or_ordered() {
             cursor.write_u24(self.order_index, Endian::Little).await?;

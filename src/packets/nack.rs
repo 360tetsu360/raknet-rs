@@ -29,11 +29,7 @@ impl Nack {
         }
     }
     pub fn get_all(&self) -> Vec<u32> {
-        let mut ret = vec![];
-        for i in self.sequences.0..self.sequences.1 + 1 {
-            ret.push(i);
-        }
-        ret
+        (self.sequences.0..self.sequences.1 + 1).collect()
     }
 }
 
@@ -56,15 +52,14 @@ impl Packet for Nack {
         let mut cursor = Reader::new(payload);
         let record_count = cursor.read_u16(Endian::Big).await?;
         let max_equals_min = cursor.read_u8().await? != 0;
-        let sequences = {
-            let sequence = cursor.read_u24(Endian::Little).await?;
-            if max_equals_min {
-                (sequence, sequence)
-            } else {
-                let sequence_max = cursor.read_u24(Endian::Little).await?;
-                (sequence, sequence_max)
-            }
-        };
+        let sequences;
+        let sequence = cursor.read_u24(Endian::Little).await?;
+        if max_equals_min {
+            sequences = (sequence, sequence)
+        } else {
+            let sequence_max = cursor.read_u24(Endian::Little).await?;
+            sequences = (sequence, sequence_max)
+        }
         Ok(Self {
             record_count,
             max_equals_min,

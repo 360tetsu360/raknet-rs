@@ -44,9 +44,6 @@ pub enum Reliability {
     Reliable,
     ReliableOrdered,
     ReliableSequenced,
-    UnreliableACKReceipt,
-    ReliableACKReceipt,
-    ReliableOrderedACKReceipt,
 }
 
 impl Reliability {
@@ -57,9 +54,6 @@ impl Reliability {
             0x2 => Ok(Self::Reliable),
             0x3 => Ok(Self::ReliableOrdered),
             0x4 => Ok(Self::ReliableSequenced),
-            0x5 => Ok(Self::UnreliableACKReceipt),
-            0x6 => Ok(Self::ReliableACKReceipt),
-            0x7 => Ok(Self::ReliableOrderedACKReceipt),
             _ => Err(Error::new(
                 ErrorKind::Other,
                 format!("unknown reliability byte {}", &byte),
@@ -73,9 +67,6 @@ impl Reliability {
             Self::Reliable => 0x2,
             Self::ReliableOrdered => 0x3,
             Self::ReliableSequenced => 0x4,
-            Self::UnreliableACKReceipt => 0x5,
-            Self::ReliableACKReceipt => 0x6,
-            Self::ReliableOrderedACKReceipt => 0x7,
         }
     }
 
@@ -125,4 +116,21 @@ pub async fn encode<T: Packet>(packet: T) -> Result<Vec<u8>> {
 
 pub async fn decode<T: Packet>(buf: &[u8]) -> Result<T> {
     T::read(&buf[1..]).await
+}
+
+#[test]
+fn reliability() {
+    let reliables = vec![
+        (Reliability::new(0x0).unwrap(), 0x0, false, false, false),
+        (Reliability::new(0x1).unwrap(), 0x1, false, true, true),
+        (Reliability::new(0x2).unwrap(), 0x2, true, false, false),
+        (Reliability::new(0x3).unwrap(), 0x3, true, true, false),
+        (Reliability::new(0x4).unwrap(), 0x4, true, true, true),
+    ];
+    for reliable in reliables {
+        assert_eq!(reliable.0.to_byte(), reliable.1);
+        assert_eq!(reliable.0.reliable(), reliable.2);
+        assert_eq!(reliable.0.sequenced_or_ordered(), reliable.3);
+        assert_eq!(reliable.0.sequenced(), reliable.4);
+    }
 }
