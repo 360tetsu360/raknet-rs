@@ -1,6 +1,6 @@
 pub(crate) mod client;
 mod connection;
-pub(crate) mod packet;
+pub mod packet;
 mod packetqueue;
 pub mod packets;
 pub(crate) mod ping;
