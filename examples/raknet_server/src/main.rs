@@ -1,5 +1,5 @@
-use raknet::{Client, RaknetHandler};
-use std::net::{ToSocketAddrs, SocketAddr};
+use raknet::{RaknetHandler, Server};
+use std::net::SocketAddr;
 
 struct S;
 impl RaknetHandler for S {
@@ -20,20 +20,17 @@ impl RaknetHandler for S {
     }
 }
 
-
-
-async fn client() {
-    let handler = S{};
-    let mut remote = "127.0.0.1:19132".to_socket_addrs().unwrap();
-    let mut client = Client::new(remote.next().unwrap(), true, handler).await.unwrap();
-    client.connect().await.unwrap();
-    client.listen().await;
+#[tokio::main]
+async fn main() {
+    let handler = S {};
+    let local: SocketAddr = "127.0.0.1:19132".parse().expect("could not parse addr");
+    let mut server = Server::new(
+            local,
+        "MCPE;§5raknet rs;390;1.17.42;0;10;13253860892328930865;Bedrock level;Survival;1;19132;19133;".to_owned(),
+        handler
+        );
+    server.listen().await.unwrap();
     loop {
         tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     }
-}
-
-#[tokio::main]
-async fn main() {
-    client().await;
 }
