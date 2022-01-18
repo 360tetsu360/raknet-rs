@@ -5,27 +5,26 @@ use tokio::{
     sync::{mpsc::Receiver, Mutex},
 };
 
-use crate::rak::{RaknetError, RaknetEvent};
+use crate::{rak::{RaknetError, RaknetEvent}, RaknetHandler};
 use crate::{connection::Connection, packets::*};
 
 use crate::macros::*;
 
 const RAKNET_PROTOCOL_VERSION: u8 = 0xA;
 
-pub struct Client {
+pub struct Client<T: RaknetHandler + 'static> {
     socket: Arc<UdpSocket>,
     connection: Arc<Mutex<Option<Connection>>>,
-    event: Arc<Mutex<Vec<RaknetEvent>>>,
-    reveiver: Arc<Mutex<Option<Receiver<RaknetEvent>>>>,
-
+    receiver: Arc<Mutex<Option<Receiver<RaknetEvent>>>>,
+    handler : Arc<Mutex<T>>,
     pub guid: u64,
     pub mtu: u16,
     pub remote: SocketAddr,
     pub local: SocketAddr,
 }
 
-impl Client {
-    pub async fn new(remote_address: SocketAddr, online: bool) -> std::io::Result<Self> {
+impl<T: RaknetHandler + 'static> Client<T> {
+    pub async fn new(remote_address: SocketAddr, online: bool,handler : T) -> std::io::Result<Self> {
         let local: SocketAddr = {
             if online {
                 "0.0.0.0:0".parse().unwrap()
@@ -38,11 +37,11 @@ impl Client {
             socket,
             remote: remote_address,
             connection: Arc::new(Mutex::new(None)),
-            event: Arc::new(Mutex::new(vec![])),
+            handler : Arc::new(Mutex::new(handler)),
             guid: random::<u64>(),
             mtu: 1492,
             local,
-            reveiver: Arc::new(Mutex::new(None)),
+            receiver: Arc::new(Mutex::new(None)),
         })
     }
 
@@ -53,23 +52,11 @@ impl Client {
 
         let socket = self.socket.clone();
         let connection = self.connection.clone();
-        let event = self.event.clone();
         let remote = self.remote;
         tokio::spawn(async move {
             let mut v = [0u8; 1500];
             loop {
-                let (size, source) = match socket.recv_from(&mut v).await {
-                    Ok(p) => p,
-                    Err(e) => {
-                        if e.kind() == std::io::ErrorKind::ConnectionReset {
-                            event.lock().await.push(RaknetEvent::Error(
-                                remote,
-                                RaknetError::RemoteClosed(remote),
-                            ))
-                        }
-                        continue;
-                    }
-                };
+                let (size, source) = unwrap_or_dbg!(socket.recv_from(&mut v).await);
 
                 if source != remote || size == 0 {
                     continue;
@@ -81,11 +68,32 @@ impl Client {
         });
 
         let connections = self.connection.clone();
-
+        let connection = self.connection.clone();
+        let receiver = self.receiver.clone();
+        let handler = self.handler.clone();
         tokio::spawn(async move {
             loop {
                 tokio::time::sleep(std::time::Duration::from_millis(10)).await;
                 connections.lock().await.as_mut().unwrap().update().await;
+
+                if connection.lock().await.as_mut().is_some() {
+                    while let Ok(event) = (*receiver.lock().await).as_mut().unwrap().try_recv() {
+                        match event {
+                            RaknetEvent::Packet(packet) => {
+                                handler.lock().await.on_message(packet);
+                            }
+                            RaknetEvent::Connected(addr, guid) => {
+                                handler.lock().await.on_connect(addr, guid);
+                            }
+                            RaknetEvent::Disconnected(addr, guid, reason) => {
+                                handler.lock().await.on_disconnect(addr, guid, reason);
+                            }
+                            RaknetEvent::Error(addr, e) => {
+                                handler.lock().await.raknet_error(addr, e);
+                            }
+                        }
+                    }
+                }
             }
         });
     }
@@ -121,7 +129,7 @@ impl Client {
         let guid = self.guid;
         let mtu = self.mtu;
         let remote = self.remote;
-        let receiver2 = self.reveiver.clone();
+        let receiver2 = self.receiver.clone();
         let mut v = [0u8; 1500];
         loop {
             let (size, source) = match socket.recv_from(&mut v).await {
@@ -196,15 +204,5 @@ impl Client {
             conn.send_to(buff);
         }
         Ok(())
-    }
-    pub async fn recv(&self) -> Result<Vec<RaknetEvent>> {
-        let mut events: Vec<RaknetEvent> = self.event.lock().await.clone();
-        self.event.lock().await.clear();
-        if self.connection.lock().await.as_mut().is_some() {
-            while let Ok(event) = (*self.reveiver.lock().await).as_mut().unwrap().try_recv() {
-                events.push(event);
-            }
-        }
-        Ok(events)
     }
 }

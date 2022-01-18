@@ -1,6 +1,6 @@
 use raknet::reader::{Endian, Reader};
 use raknet::writer::Writer;
-use raknet::{Client, Ping, RaknetEvent, Server};
+use raknet::{Client, Ping, RaknetEvent, Server, RaknetHandler};
 use std::cmp::Ordering;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 
@@ -71,6 +71,26 @@ async fn reader_writer() {
         cursor.read_string().await.unwrap().cmp(test_string),
         Ordering::Equal
     );
+}
+
+
+struct S;
+impl RaknetHandler for S {
+    fn on_connect(&mut self, addr: SocketAddr, _guid: u64) {
+        dbg!(addr);
+    }
+
+    fn on_disconnect(&mut self, addr: SocketAddr, _guid: u64, _reason: raknet::DisconnectReason) {
+        dbg!(addr);
+    }
+
+    fn on_message(&mut self, packet: raknet::packet::RaknetPacket) {
+        dbg!(packet.address);
+    }
+
+    fn raknet_error(&mut self, addr: SocketAddr, _e: raknet::RaknetError) {
+        dbg!(addr);
+    }
 }
 
 #[tokio::test]

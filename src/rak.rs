@@ -38,3 +38,10 @@ impl Display for RaknetError {
 }
 
 impl std::error::Error for RaknetError {}
+
+pub trait RaknetHandler: std::marker::Send {
+    fn on_connect(&mut self, addr: SocketAddr, guid: u64);
+    fn on_disconnect(&mut self, addr: SocketAddr, guid: u64, reason: DisconnectReason);
+    fn on_message(&mut self, packet: RaknetPacket);
+    fn raknet_error(&mut self, addr: SocketAddr, e: RaknetError);
+}

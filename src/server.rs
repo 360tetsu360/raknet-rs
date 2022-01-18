@@ -5,13 +5,13 @@ use tokio::{
     sync::{mpsc::Receiver, Mutex},
 };
 
-use crate::macros::*;
 use crate::RaknetEvent;
 use crate::{connection::Connection, packets::*};
+use crate::{macros::*, RaknetHandler};
 
 const RAKNET_PROTOCOL_VERSION: u8 = 0xA;
 
-pub struct Server {
+pub struct Server<T: RaknetHandler + 'static> {
     socket: Option<Arc<UdpSocket>>,
     connection: Arc<Mutex<HashMap<SocketAddr, Arc<Mutex<Connection>>>>>,
     title: Arc<Mutex<String>>,
@@ -19,10 +19,11 @@ pub struct Server {
     receivers: Arc<Mutex<Vec<Receiver<RaknetEvent>>>>,
     pub local_addr: SocketAddr,
     pub id: u64,
+    handler: Arc<Mutex<T>>,
 }
 
-impl Server {
-    pub fn new(address: SocketAddr, title: String) -> Self {
+impl<T: RaknetHandler + 'static> Server<T> {
+    pub fn new(address: SocketAddr, title: String, handler: T) -> Self {
         Self {
             socket: None,
             connection: Arc::new(Mutex::new(HashMap::new())),
@@ -31,6 +32,7 @@ impl Server {
             local_addr: address,
             connected_clients: Arc::new(Mutex::new(vec![])),
             receivers: Arc::new(Mutex::new(vec![])),
+            handler: Arc::new(Mutex::new(handler)),
         }
     }
 
@@ -43,8 +45,9 @@ impl Server {
         let motd = self.title.clone();
         let receiver = self.receivers.clone();
         tokio::spawn(async move {
-            let mut v = [0u8; 1500];
             loop {
+                let mut v = [0u8; 1500];
+
                 let (size, source) = unwrap_or_return!(socket2.recv_from(&mut v).await);
 
                 if size == 0 {
@@ -136,7 +139,9 @@ impl Server {
         });
 
         let connections = self.connection.clone();
-
+        let receivers = self.receivers.clone();
+        let connected = self.connected_clients.clone();
+        let handler = self.handler.clone();
         tokio::spawn(async move {
             loop {
                 tokio::time::sleep(std::time::Duration::from_millis(10)).await;
@@ -146,31 +151,38 @@ impl Server {
                         conn2.lock().await.update().await;
                     });
                 }
+
+                let mut disconnected_clients = vec![];
+
+                for (index, receiver) in receivers.lock().await.iter_mut().enumerate() {
+                    while let Ok(event) = receiver.try_recv() {
+                        match event {
+                            RaknetEvent::Packet(packet) => {
+                                handler.lock().await.on_message(packet);
+                            }
+                            RaknetEvent::Connected(addr, guid) => {
+                                handler.lock().await.on_connect(addr, guid);
+                            }
+                            RaknetEvent::Disconnected(addr, guid, reason) => {
+                                disconnected_clients.push((addr, index));
+                                handler.lock().await.on_disconnect(addr, guid, reason);
+                            }
+                            RaknetEvent::Error(addr, e) => {
+                                handler.lock().await.raknet_error(addr, e);
+                            }
+                        }
+                    }
+                }
+                for addr in disconnected_clients.iter() {
+                    connections.lock().await.remove(&addr.0);
+                    connected.lock().await.remove(addr.1);
+                    receivers.lock().await.remove(addr.1);
+                }
+                disconnected_clients.clear();
             }
         });
 
         Ok(())
-    }
-
-    pub async fn recv(&self) -> Result<Vec<RaknetEvent>> {
-        let mut events: Vec<RaknetEvent> = vec![];
-        let mut disconnected_clients = vec![];
-
-        for (index, receiver) in self.receivers.lock().await.iter_mut().enumerate() {
-            while let Ok(event) = receiver.try_recv() {
-                if let RaknetEvent::Disconnected(addr, _guid, _reason) = event {
-                    disconnected_clients.push((addr, index));
-                }
-                events.push(event);
-            }
-        }
-        for addr in disconnected_clients.iter() {
-            self.connection.lock().await.remove(&addr.0);
-            self.connected_clients.lock().await.remove(addr.1);
-            self.receivers.lock().await.remove(addr.1);
-        }
-        disconnected_clients.clear();
-        Ok(events)
     }
 
     pub async fn send_to(&mut self, addr: &SocketAddr, buff: &[u8]) -> Result<()> {
